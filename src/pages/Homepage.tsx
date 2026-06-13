@@ -109,7 +109,7 @@ export default function Homepage() {
         <div className="max-w-7xl mx-auto px-6 h-16 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <div className="w-7 h-7 bg-[#991b1b] rounded-md"></div>
-            <span className="font-extrabold text-xl tracking-tight text-gray-900">MUDRRS</span>
+            <span className="font-bold text-xl tracking-tight text-gray-900">MUDRRS</span>
           </div>
 
           <div className="hidden md:flex gap-8">
@@ -120,7 +120,7 @@ export default function Homepage() {
 
           <div className="flex items-center gap-4">
             <div className="hidden md:flex items-center gap-3 p-1 pr-4 bg-gray-50 rounded-full border border-gray-200">
-              <div className="w-8 h-8 rounded-full bg-[#ffc000] text-gray-900 flex justify-center items-center font-extrabold text-xs">JB</div>
+              <div className="w-8 h-8 rounded-full bg-[#ffc000] text-gray-900 flex justify-center items-center font-bold text-xs">JB</div>
               <span className="text-sm font-semibold text-gray-700">Juan Dela Cruz</span>
             </div>
             <button 
@@ -149,7 +149,7 @@ export default function Homepage() {
         <section className="relative overflow-hidden bg-gradient-to-br from-[#991b1b] to-[#7f1d1d] rounded-2xl p-6 md:p-10 text-white shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
           <div className="absolute -top-1/2 -right-10 w-72 h-72 bg-[#ffc000] rounded-full opacity-10 pointer-events-none blur-3xl"></div>
           <div className="z-10">
-            <h1 className="text-3xl font-extrabold mb-2 tracking-tight">Welcome back, Juan!</h1>
+            <h1 className="text-3xl font-bold mb-2 tracking-tight">Welcome back, Juan!</h1>
             <p className="text-red-100 text-sm md:text-base font-medium">
               You have <strong className="text-white underline decoration-[#ffc000] decoration-2">{MOCK_BOOKINGS.filter(b => b.status === 'upcoming').length}</strong> upcoming reservations this week. Need another study session?
             </p>
@@ -167,7 +167,7 @@ export default function Homepage() {
           {/* Main Column (Left): Interactive Stream of Bookings */}
           <div className="lg:col-span-2 space-y-4">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-1">
-              <h2 className="text-lg font-extrabold text-gray-900 tracking-tight">
+              <h2 className="text-lg font-bold text-gray-900 tracking-tight">
                 {selectedDate ? `Bookings for ${selectedDate}` : 'Weekly Bookings Summary'}
               </h2>
               
@@ -199,7 +199,7 @@ export default function Homepage() {
                       className={`bg-white border border-gray-200/80 rounded-xl p-5 flex flex-col md:grid md:grid-cols-[1.2fr_2fr_auto] gap-4 md:items-center hover:border-gray-300 hover:shadow-sm transition-all ${styles.cardBorder}`}
                     >
                       <div className="flex md:flex-col justify-between border-b md:border-none border-gray-100 pb-2 md:pb-0">
-                        <span className="font-extrabold text-gray-900 text-sm">{booking.displayDate}</span>
+                        <span className="font-bold text-gray-900 text-sm">{booking.displayDate}</span>
                         <span className="text-gray-500 text-xs font-semibold">{booking.time}</span>
                       </div>
                       <div>
@@ -234,12 +234,12 @@ export default function Homepage() {
             <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
               <div className="flex justify-between items-center mb-4">
                 <div className="flex items-center gap-2">
-                  <h3 className="font-extrabold text-sm text-gray-900 tracking-tight">{monthName} {year}</h3>
+                  <h3 className="font-bold text-sm text-gray-900 tracking-tight">{monthName} {year}</h3>
                   {/* Feature: Quick clear inline filter */}
                   {selectedDate && (
                     <button 
                       onClick={() => setSelectedDate(null)}
-                      className="text-[10px] font-extrabold bg-red-50 text-[#991b1b] border border-red-100 px-1.5 py-0.5 rounded hover:bg-red-100 transition-colors"
+                      className="text-[10px] font-bold bg-red-50 text-[#991b1b] border border-red-100 px-1.5 py-0.5 rounded hover:bg-red-100 transition-colors"
                     >
                       Clear
                     </button>
@@ -280,7 +280,7 @@ export default function Homepage() {
                           isSelected 
                             ? 'bg-gray-900 text-white shadow-md' 
                             : isToday 
-                              ? 'bg-[#991b1b] text-white shadow-md shadow-[#991b1b]/20 font-extrabold' 
+                              ? 'bg-[#991b1b] text-white shadow-md shadow-[#991b1b]/20 font-bold' 
                               : 'text-gray-700 hover:bg-gray-100'
                         }`}
                       >
@@ -307,7 +307,7 @@ export default function Homepage() {
             {/* Notifications Display Section */}
             <div className="space-y-3.5">
               <div className="flex justify-between items-center">
-                <h2 className="text-sm font-extrabold text-gray-900 tracking-tight">System Notifications</h2>
+                <h2 className="text-sm font-bold text-gray-900 tracking-tight">System Notifications</h2>
                 {notifications.length > 0 && (
                   <button 
                     onClick={handleClearNotifications} 
