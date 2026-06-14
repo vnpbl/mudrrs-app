@@ -1,5 +1,5 @@
 import React from 'react';
-import { type RegistryRoom } from './types';
+import { type RegistryRoom } from '../types';
 
 interface AnalyticsProps {
   activeBookingsCount: number;

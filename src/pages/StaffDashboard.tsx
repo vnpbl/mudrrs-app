@@ -1,10 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { type BookingDatabase, type RegistryRoom, type PendingRequest } from './types';
-import './StaffDashboard.modules.css';
+import { type BookingDatabase, type RegistryRoom, type PendingRequest } from '../types';
+import '../StaffDashboard.modules.css';
 
-import { LiveBoardView } from './LiveBoard';
-import { AnalyticsView } from './Analytics';
-import { ConfigurationsView } from './Configurations';
+import { LiveBoardView } from './LiveBoardPage';
+import { AnalyticsView } from './AnalyticsPage';
+import { ConfigurationsView } from './ConfigurationsPage';
 
 export const StaffDashboard: React.FC = () => {
   const [currentTab, setCurrentTab] = useState<'board' | 'analytics' | 'config'>('board');
@@ -92,7 +92,7 @@ export const StaffDashboard: React.FC = () => {
           <div className="nav-brand">
             <div className="brand-logo" />
             <span className="logo-text">MUDRRS</span>
-            <span className="role-badge">Staff Hub</span>
+            <span className="role-badge">STAFF HUB</span>
           </div>
           
           <div className="nav-links">

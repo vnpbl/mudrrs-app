@@ -4,8 +4,10 @@ import SignupPage from "./pages/SignupPage";
 import Homepage from "./pages/Homepage";
 import BookingPage from "./pages/BookingPage";
 import ReservationsPage from "./pages/ReservationsPage";
+import { StaffDashboard } from "./pages/StaffDashboard";
 
 function App() {
+  const userRole = 'staff';
   return (
     <BrowserRouter>
       <Routes>
@@ -14,6 +16,7 @@ function App() {
         <Route path="/dashboard" element={<Homepage />} />
         <Route path="/book" element={<BookingPage />} />
         <Route path="/reservations" element={<ReservationsPage />} />
+        <Route path="/dashboard-staff" element={<StaffDashboard />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

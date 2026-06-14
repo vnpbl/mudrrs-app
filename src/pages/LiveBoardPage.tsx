@@ -1,5 +1,5 @@
 import React from 'react';
-import { type BookingDatabase, type RegistryRoom, type PendingRequest } from './types';
+import { type BookingDatabase, type RegistryRoom, type PendingRequest } from '../types';
 
 interface LiveBoardProps {
   bookings: BookingDatabase;

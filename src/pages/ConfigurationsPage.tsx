@@ -1,5 +1,5 @@
 import React from 'react';
-import { type RegistryRoom } from './types';
+import { type RegistryRoom } from '../types';
 
 interface ConfigurationsProps {
   newRoom: { name: string; campus: 'Makati' | 'Intramuros'; capacity: string };
