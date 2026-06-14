@@ -160,7 +160,7 @@ export const ConfigurationsView: React.FC<ConfigurationsProps> = ({
               <div className="status-indicator-dot" />
               <div className="automation-text-node">
                 <h3>Automation Engine Online</h3>
-                <p>Supabase db connection nodes synchronized safely.</p>
+                <p>Database connection synchronized safely.</p>
               </div>
             </div>
 

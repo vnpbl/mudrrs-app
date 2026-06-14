@@ -546,6 +546,7 @@ td {
   margin: 0 0 0.25rem 0 !important; 
   font-size: 1.35rem; 
   color: var(--color-text-main); 
+  font-weight: 700;
 }
 
 .header-text-cluster p { 
@@ -777,6 +778,7 @@ td {
   font-size: 1.35rem;
   color: #0f172a;
   margin: 0 0 0.25rem 0;
+  font-weight: 700;
 }
 .system-parameter-banner p {
   color: #64748b;
