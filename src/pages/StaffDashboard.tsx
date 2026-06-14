@@ -146,6 +146,7 @@ export const StaffDashboard: React.FC = () => {
             filteredRegistryView={filteredRegistryView}
             handleAddRoom={handleAddRoom}
             handleStatusToggle={handleStatusToggle}
+            totalRoomsCount={registry.length}
           />
         )}
       </main>

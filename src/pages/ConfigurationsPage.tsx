@@ -9,6 +9,7 @@ interface ConfigurationsProps {
   filteredRegistryView: RegistryRoom[];
   handleAddRoom: (e: React.FormEvent) => void;
   handleStatusToggle: (roomName: string, nextStatus: 'Active' | 'Maintenance') => void;
+  totalRoomsCount: number;
 }
 
 export const ConfigurationsView: React.FC<ConfigurationsProps> = ({
@@ -19,6 +20,7 @@ export const ConfigurationsView: React.FC<ConfigurationsProps> = ({
   filteredRegistryView,
   handleAddRoom,
   handleStatusToggle,
+  totalRoomsCount,
 }) => {
   return (
     <div className="configurations-workspace">
@@ -31,11 +33,11 @@ export const ConfigurationsView: React.FC<ConfigurationsProps> = ({
       <div className="admin-grid" style={{ marginTop: '1.5rem' }}>
         <div className="left-column">
           <section className="section-card">
-            <div className="card-header-flex">
-              <div className="card-title-area">
-                <h2>Discussion Rooms Registry</h2>
-              </div>
-              <span className="provisioned-badge">3 Rooms Provisioned</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
+              <h2 style={{ margin: 0, fontWeight: 'bold' }}>Discussion Rooms Registry</h2>
+              <span className="provisioned-badge">
+                {totalRoomsCount} {totalRoomsCount === 1 ? 'Room' : 'Rooms'} Provisioned
+              </span>
             </div>
 
             <form className="config-embedded-form" onSubmit={handleAddRoom}>
