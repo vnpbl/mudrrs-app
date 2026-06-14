@@ -7,7 +7,6 @@ import ReservationsPage from "./pages/ReservationsPage";
 import { StaffDashboard } from "./pages/StaffDashboard";
 
 function App() {
-  const userRole = 'staff';
   return (
     <BrowserRouter>
       <Routes>
