@@ -234,7 +234,7 @@ export default function BookingPage() {
           </div>
 
           <div className="hidden md:flex gap-8">
-            <Link to="/" className="text-gray-500 hover:text-gray-900 font-semibold text-sm py-5 border-b-2 border-transparent transition-colors">Home</Link>
+            <Link to="/dashboard" className="text-gray-500 hover:text-gray-900 font-semibold text-sm py-5 border-b-2 border-transparent transition-colors">Home</Link>
             <Link to="/book" className="text-[#991b1b] font-bold text-sm py-5 border-b-2 border-[#991b1b] transition-colors">Book a Room</Link>
             <Link to="/reservations" className="text-gray-500 hover:text-gray-900 font-semibold text-sm py-5 border-b-2 border-transparent transition-colors">My Reservations</Link>
           </div>
