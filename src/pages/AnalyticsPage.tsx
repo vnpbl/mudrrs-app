@@ -68,7 +68,7 @@ export const AnalyticsView: React.FC<AnalyticsProps> = ({
               <div className="campus-stat-info">
                 <div className="campus-name-labels">
                   <h3>Makati Campus Libraries</h3>
-                  <p>Primary tracking targets: Room A, Room C</p>
+                  <p>Primary tracking targets: Room A, Room B</p>
                 </div>
                 <span className="percentage-metric font-maroon">{campusMetrics.Makati.percent}%</span>
               </div>
