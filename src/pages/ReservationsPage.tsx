@@ -278,8 +278,8 @@ export default function ReservationsPage() {
               </div>
             ) : (
               processedReservations.map(res => {
-                // Determines if the cancel button should render based on Time 
-                const canCancel = (res.status === 'Upcoming' || res.status === 'Active') && isCancelable(res.date, res.time);
+                // Modified: Only render Cancel button if strictly 'Upcoming'
+                const canCancel = res.status === 'Upcoming' && isCancelable(res.date, res.time);
 
                 return (
                   <div key={res.id} className="bg-white border border-gray-200/80 rounded-xl p-5 shadow-sm hover:border-gray-300 hover:shadow-sm transition-all">
@@ -316,9 +316,9 @@ export default function ReservationsPage() {
                     </div>
 
                     {/* Card Actions */}
-                    <div className="flex justify-end items-center gap-4 border-t border-gray-100 pt-4">
+                    <div className="flex justify-end items-center gap-3 border-t border-gray-100 pt-4">
                       {canCancel && (
-                        <button onClick={() => setCancelModalRes(res)} className="text-[#991b1b] text-xs font-bold hover:underline transition-all mr-auto">
+                        <button onClick={() => setCancelModalRes(res)} className="px-4 py-2 text-[#991b1b] text-xs font-bold hover:bg-red-50 rounded-lg transition-all">
                           Cancel Booking
                         </button>
                       )}
