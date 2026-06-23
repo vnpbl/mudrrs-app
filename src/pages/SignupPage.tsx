@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 export const SignupPage: React.FC = () => {
   // TypeScript state management for the registration form
@@ -14,6 +15,7 @@ export const SignupPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   
   const navigate = useNavigate();
+  const { signUp } = useAuth();
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,14 +33,35 @@ export const SignupPage: React.FC = () => {
       return;
     }
 
+    // Validation 3: Student ID
+    if (studentId.length !== 10 || isNaN(Number(studentId))) {
+      setError('Please enter a valid 10-digit Student ID Number.');
+      return;
+    }
+
+    // Validation 4: Password length
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters long.');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      // Simulating backend latency for database insertion
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const { error: signUpError } = await signUp(
+        email,
+        password,
+        studentId,
+        firstName.trim(),
+        lastName.trim()
+      );
+
+      if (signUpError) {
+        setError(signUpError);
+        return;
+      }
       
-      // For now, simulate success and redirect to login
-      alert(`Account created successfully for ${email}. Ready to login!`);
+      alert(`Account created successfully for ${email}. You can now sign in!`);
       navigate('/');
       
     } catch (err) {
@@ -72,7 +95,7 @@ export const SignupPage: React.FC = () => {
               Student <br /> Registration
             </h1>
             <p className="text-[0.95rem] leading-relaxed text-red-200">
-              Set up your simulated development account to access the Mapúa University Discussion Room Reservation System.
+              Set up your account to access the Mapúa University Discussion Room Reservation System.
             </p>
           </div>
           
@@ -93,7 +116,7 @@ export const SignupPage: React.FC = () => {
           <div className="w-full max-w-md mx-auto">
             <div className="mb-8">
               <h2 className="text-3xl font-bold text-gray-900 tracking-tight mb-2">Create Account</h2>
-              <p className="text-sm text-gray-500">Register your MyMapúa developer credentials.</p>
+              <p className="text-sm text-gray-500">Register your MyMapúa credentials.</p>
             </div>
 
             <form onSubmit={handleSignup} autoComplete="off" className="space-y-5">
@@ -115,7 +138,7 @@ export const SignupPage: React.FC = () => {
                 <label htmlFor="studentId" className="text-sm font-semibold text-gray-700">Student ID Number</label>
                 <div className="relative flex items-center">
                   <svg className="absolute left-4 w-5 h-5 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"></path>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 0 0 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"></path>
                   </svg>
                   <input type="text" id="studentId" placeholder="2020123456" required value={studentId} onChange={(e) => setStudentId(e.target.value)} className="w-full pl-11 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 focus:bg-white focus:border-[#991b1b] focus:ring-4 focus:ring-[#991b1b]/10 outline-none transition-all" />
                 </div>
