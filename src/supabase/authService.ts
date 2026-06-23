@@ -1,11 +1,11 @@
+// src/supabase/authService.ts
 import { supabase } from './client';
 
 export type UserRow = {
   user_id: number;
   email: string;
-  role: 'student' | 'library_staff';
-  // frontend alias
-  id: string; // user_id as string
+  role: 'Student' | 'Library Staff';
+  id: string;
 };
 
 export type StudentRow = {
@@ -29,18 +29,117 @@ export type UserProfile = {
   profile: StudentRow | LibraryStaffRow | null;
 };
 
+// ---------- SIGN UP (STUDENT) ----------
+export async function signUpStudent(
+  email: string,
+  password: string,
+  studentId: string,
+  firstName: string,
+  lastName: string,
+  program?: string
+): Promise<{ user: UserRow | null; error: string | null }> {
+  console.log('📝 [signUpStudent] Attempting to create account for:', email);
+  console.log('📝 [signUpStudent] Metadata to send:', { studentId, firstName, lastName, program });
+
+  try {
+    // 1. Create auth user with metadata
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          student_id: studentId,
+          first_name: firstName,
+          last_name: lastName,
+          program: program || null,
+        },
+      },
+    });
+
+    if (authError) {
+      console.error('❌ [signUpStudent] Auth creation failed:', authError.message, authError);
+      return { user: null, error: authError.message };
+    }
+
+    if (!authData.user) {
+      console.error('❌ [signUpStudent] No user returned from auth');
+      return { user: null, error: 'Failed to create user. Please try again.' };
+    }
+
+    console.log('✅ [signUpStudent] Auth user created:', authData.user.id, authData.user.email);
+    console.log('   Raw metadata:', authData.user.user_metadata);
+
+    // 2. 🔥 TRIGGER SHOULD HAVE INSERTED INTO USERS & STUDENTS AUTOMATICALLY!
+    // We wait a moment and then fetch the public user record.
+
+    // Optional small delay to allow trigger to run (often immediate)
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // 3. Fetch the newly created user from public.users
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', authData.user.email!)
+      .single();
+
+    if (userError || !userData) {
+      console.error('❌ [signUpStudent] Failed to retrieve public user record:', userError);
+      return { user: null, error: 'User created but profile retrieval failed. Please contact support.' };
+    }
+
+    console.log('✅ [signUpStudent] Public user record found:', userData);
+
+    const userRow: UserRow = {
+      user_id: userData.user_id,
+      email: userData.email,
+      role: userData.role,
+      id: String(userData.user_id),
+    };
+
+    // 4. (Optional) Verify student record was also created
+    const { data: studentData, error: studentCheckError } = await supabase
+      .from('students')
+      .select('*')
+      .eq('user_id', userData.user_id)
+      .single();
+
+    if (studentCheckError) {
+      console.warn('⚠️ [signUpStudent] Student record not found yet (might be trigger delay):', studentCheckError);
+    } else {
+      console.log('✅ [signUpStudent] Student record confirmed:', studentData);
+    }
+
+    console.log('🎉 [signUpStudent] Signup completed successfully for:', email);
+    return { user: userRow, error: null };
+
+  } catch (err) {
+    console.error('💥 [signUpStudent] Unexpected error:', err);
+    return { user: null, error: 'An unexpected error occurred during registration.' };
+  }
+}
+
+// ---------- SIGN IN ----------
 export async function signIn(
   email: string,
   password: string
 ): Promise<{ profile: UserProfile | null; error: string | null }> {
+  console.log('🔑 [signIn] Attempting sign in for:', email);
   try {
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
-    if (authError) return { profile: null, error: authError.message };
-    if (!authData.user) return { profile: null, error: 'Invalid credentials.' };
+    if (authError) {
+      console.error('❌ [signIn] Auth failed:', authError.message);
+      return { profile: null, error: authError.message };
+    }
+    if (!authData.user) {
+      console.error('❌ [signIn] No user returned');
+      return { profile: null, error: 'Invalid credentials.' };
+    }
+
+    console.log('✅ [signIn] Auth successful for:', authData.user.email);
 
     const { data: userData, error: userError } = await supabase
       .from('users')
@@ -49,6 +148,7 @@ export async function signIn(
       .single();
 
     if (userError || !userData) {
+      console.error('❌ [signIn] Failed to fetch public user record:', userError);
       await supabase.auth.signOut();
       return { profile: null, error: 'Account not fully configured.' };
     }
@@ -61,7 +161,7 @@ export async function signIn(
     };
 
     let profile: StudentRow | LibraryStaffRow | null = null;
-    if (userRow.role === 'student') {
+    if (userRow.role === 'Student') {
       const { data: studentData } = await supabase
         .from('students')
         .select('*')
@@ -76,7 +176,7 @@ export async function signIn(
           program: studentData.program,
         };
       }
-    } else if (userRow.role === 'library_staff') {
+    } else if (userRow.role === 'Library Staff') {
       const { data: staffData } = await supabase
         .from('library_staff')
         .select('*')
@@ -93,86 +193,41 @@ export async function signIn(
       }
     }
 
+    console.log('✅ [signIn] Profile loaded:', profile);
     return { profile: { user: userRow, profile }, error: null };
-  } catch {
+  } catch (err) {
+    console.error('💥 [signIn] Unexpected error:', err);
     return { profile: null, error: 'An unexpected error occurred during sign in.' };
   }
 }
 
-export async function signUpStudent(
-  email: string,
-  password: string,
-  studentId: string,
-  firstName: string,
-  lastName: string
-): Promise<{ user: UserRow | null; error: string | null }> {
-  try {
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email,
-      password,
-    });
-
-    if (authError) return { user: null, error: authError.message };
-    if (!authData.user) return { user: null, error: 'Failed to create user.' };
-
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .insert({
-        auth_id: authData.user.id,
-        email: authData.user.email!,
-        password: '', // managed by Supabase Auth
-        role: 'Student',
-      })
-      .select()
-      .single();
-
-    if (userError) {
-      await supabase.auth.signOut();
-      return { user: null, error: `Failed to create profile: ${userError.message}` };
-    }
-
-    const { error: studentError } = await supabase.from('students').insert({
-      user_id: userData.user_id,
-      student_id: studentId,
-      first_name: firstName,
-      last_name: lastName,
-    });
-
-    if (studentError) {
-      await supabase.from('users').delete().eq('user_id', userData.user_id);
-      await supabase.auth.signOut();
-      return { user: null, error: `Failed to create student record: ${studentError.message}` };
-    }
-
-    const userRow: UserRow = {
-      user_id: userData.user_id,
-      email: userData.email,
-      role: userData.role,
-      id: String(userData.user_id),
-    };
-
-    return { user: userRow, error: null };
-  } catch {
-    return { user: null, error: 'An unexpected error occurred during registration.' };
-  }
-}
-
+// ---------- SIGN OUT ----------
 export async function signOut(): Promise<{ error: string | null }> {
   try {
     const { error } = await supabase.auth.signOut();
-    return { error: error ? error.message : null };
-  } catch {
+    if (error) {
+      console.error('❌ [signOut] Error:', error.message);
+      return { error: error.message };
+    }
+    console.log('✅ [signOut] Signed out successfully');
+    return { error: null };
+  } catch (err) {
+    console.error('💥 [signOut] Unexpected error:', err);
     return { error: 'An unexpected error occurred during sign out.' };
   }
 }
 
+// ---------- GET CURRENT SESSION ----------
 export async function getCurrentSession(): Promise<{
   profile: UserProfile | null;
   error: string | null;
 }> {
   try {
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError || !sessionData.session?.user) return { profile: null, error: null };
+    if (sessionError || !sessionData.session?.user) {
+      console.log('ℹ️ [getCurrentSession] No active session');
+      return { profile: null, error: null };
+    }
 
     const email = sessionData.session.user.email;
     if (!email) return { profile: null, error: null };
@@ -196,7 +251,7 @@ export async function getCurrentSession(): Promise<{
     };
 
     let profile: StudentRow | LibraryStaffRow | null = null;
-    if (userRow.role === 'student') {
+    if (userRow.role === 'Student') {
       const { data: studentData } = await supabase
         .from('students')
         .select('*')
@@ -211,7 +266,7 @@ export async function getCurrentSession(): Promise<{
           program: studentData.program,
         };
       }
-    } else if (userRow.role === 'library_staff') {
+    } else if (userRow.role === 'Library Staff') {
       const { data: staffData } = await supabase
         .from('library_staff')
         .select('*')
@@ -228,8 +283,10 @@ export async function getCurrentSession(): Promise<{
       }
     }
 
+    console.log('✅ [getCurrentSession] Session restored for:', email);
     return { profile: { user: userRow, profile }, error: null };
-  } catch {
+  } catch (err) {
+    console.error('💥 [getCurrentSession] Unexpected error:', err);
     return { profile: null, error: null };
   }
 }

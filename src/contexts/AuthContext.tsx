@@ -1,6 +1,12 @@
+// src/contexts/AuthContext.tsx
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { UserProfile } from '../supabase/authService';
-import { getCurrentSession, signIn as supabaseSignIn, signUpStudent as supabaseSignUp, signOut as supabaseSignOut } from '../supabase/authService';
+import {
+  getCurrentSession,
+  signIn as supabaseSignIn,
+  signUpStudent as supabaseSignUp,
+  signOut as supabaseSignOut,
+} from '../supabase/authService';
 
 interface AuthContextType {
   profile: UserProfile | null;
@@ -30,7 +36,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const { profile: sessionProfile } = await getCurrentSession();
       setProfile(sessionProfile);
+      if (sessionProfile) {
+        console.log('✅ [AuthProvider] Session loaded for:', sessionProfile.user.email);
+      } else {
+        console.log('ℹ️ [AuthProvider] No session found');
+      }
     } catch (err) {
+      console.error('❌ [AuthProvider] Failed to load session:', err);
       setProfile(null);
     } finally {
       setIsLoading(false);
@@ -43,11 +55,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = useCallback(
     async (email: string, password: string): Promise<{ error: string | null }> => {
+      console.log('🔑 [AuthProvider] signIn called for:', email);
       const { profile: userProfile, error } = await supabaseSignIn(email, password);
       if (error) {
+        console.error('❌ [AuthProvider] signIn failed:', error);
         return { error };
       }
       setProfile(userProfile);
+      console.log('✅ [AuthProvider] signIn successful, profile set');
       return { error: null };
     },
     []
@@ -61,9 +76,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       firstName: string,
       lastName: string
     ): Promise<{ error: string | null }> => {
-      const { error } = await supabaseSignUp(email, password, studentId, firstName, lastName);
+      console.log('📝 [AuthProvider] signUp called for:', email);
+      const { user, error } = await supabaseSignUp(email, password, studentId, firstName, lastName);
       if (error) {
+        console.error('❌ [AuthProvider] signUp failed:', error);
         return { error };
+      }
+      if (user) {
+        console.log('✅ [AuthProvider] signUp successful, user:', user);
+      } else {
+        console.warn('⚠️ [AuthProvider] signUp returned user=null but no error');
       }
       return { error: null };
     },
@@ -71,11 +93,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const signOut = useCallback(async () => {
+    console.log('🚪 [AuthProvider] signOut called');
     await supabaseSignOut();
     setProfile(null);
+    console.log('✅ [AuthProvider] signOut complete');
   }, []);
 
   const refreshSession = useCallback(async () => {
+    console.log('🔄 [AuthProvider] Refreshing session');
     await loadSession();
   }, [loadSession]);
 
@@ -83,7 +108,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     profile,
     isLoading,
     isAuthenticated: profile !== null,
-    isStaff: profile?.user.role === 'library_staff',
+    isStaff: profile?.user.role === 'Library Staff',
     signIn,
     signUp,
     signOut,
@@ -101,9 +126,6 @@ export function useAuth(): AuthContextType {
   return context;
 }
 
-/**
- * Utility component to protect routes based on role
- */
 export function RequireAuth({
   children,
   requireStaff = false,
@@ -112,7 +134,7 @@ export function RequireAuth({
   requireStaff?: boolean;
 }) {
   const { isAuthenticated, isStaff, isLoading } = useAuth();
-  
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -125,7 +147,6 @@ export function RequireAuth({
   }
 
   if (!isAuthenticated) {
-    // Will be handled by the protected route redirect
     return null;
   }
 
