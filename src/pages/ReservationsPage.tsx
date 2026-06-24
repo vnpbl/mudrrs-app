@@ -68,7 +68,17 @@ export default function ReservationsPage() {
   const loadReservations = useCallback(async () => {
     if (!profile) return;
     setIsLoading(true);
-    const { reservations: data, error: fetchError } = await fetchStudentReservations(profile.user.id);
+    const studentId = profile.profile && 'student_id' in profile.profile 
+    ? profile.profile.student_id 
+    : null;
+
+    if (!studentId) {
+      console.warn('No student ID found');
+      setIsLoading(false);
+      return;
+    }
+
+    const { reservations: data, error: fetchError } = await fetchStudentReservations(studentId);
     if (!fetchError) {
       setReservations(data);
     }
@@ -81,7 +91,13 @@ export default function ReservationsPage() {
 
   useEffect(() => {
     if (!profile) return;
-    const unsubscribe = subscribeToUserReservations(profile.user.id, (updatedReservation) => {
+    const studentId = profile.profile && 'student_id' in profile.profile
+      ? (profile.profile as { student_id: string }).student_id
+      : null;
+
+    if (!studentId) return;
+
+    const unsubscribe = subscribeToUserReservations(studentId, (updatedReservation) => {
       setReservations((prev: any[]) => {
         const exists = prev.find((r: any) => r.id === updatedReservation.id);
         if (exists) {
@@ -304,21 +320,86 @@ export default function ReservationsPage() {
       {detailsModalRes && (
         <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm flex justify-center items-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="p-6 border-b border-gray-100"><h2 className="text-xl font-bold text-gray-900 tracking-tight">Reservation Details</h2></div>
+            <div className="p-6 border-b border-gray-100">
+              <h2 className="text-xl font-bold text-gray-900 tracking-tight">Reservation Details</h2>
+            </div>
             <div className="p-6">
               <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 flex flex-col gap-3">
-                <div className="flex justify-between items-center text-sm"><span className="text-gray-500 font-medium">Status</span><strong className={`font-bold uppercase text-[10px] tracking-wider ${detailsModalRes.status === 'Pending' ? 'text-blue-700' : detailsModalRes.status === 'Active' ? 'text-[#991b1b]' : 'text-red-600'}`}>{detailsModalRes.status}</strong></div>
-                <div className="flex justify-between items-center text-sm border-t border-gray-200/60 pt-3"><span className="text-gray-500 font-medium">Reservation ID</span><strong className="text-gray-900 font-bold">{detailsModalRes.id}</strong></div>
-                <div className="flex justify-between items-center text-sm border-t border-gray-200/60 pt-3"><span className="text-gray-500 font-medium">Space</span><strong className="text-gray-900 font-bold">{detailsModalRes.room?.name || 'Unknown'}</strong></div>
-                <div className="flex justify-between items-center text-sm border-t border-gray-200/60 pt-3"><span className="text-gray-500 font-medium">Location</span><strong className="text-gray-900 font-bold">{detailsModalRes.room?.campus || ''} Campus</strong></div>
-                <div className="flex justify-between items-center text-sm border-t border-gray-200/60 pt-3"><span className="text-gray-500 font-medium">Date</span><strong className="text-gray-900 font-bold">{formatDate(detailsModalRes.date)}</strong></div>
-                <div className="flex justify-between items-center text-sm border-t border-gray-200/60 pt-3"><span className="text-gray-500 font-medium">Time Window</span><strong className="text-[#991b1b] font-bold">{parseTime(detailsModalRes.start_time, detailsModalRes.end_time)}</strong></div>
-                <div className="flex justify-between items-start text-sm border-t border-gray-200/60 pt-3"><span className="text-gray-500 font-medium">Activity</span><strong className="text-gray-900 font-semibold text-right max-w-[60%]">{detailsModalRes.activity || 'Not specified'}</strong></div>
-                <div className="flex justify-between items-start text-sm border-t border-gray-200/60 pt-3"><span className="text-gray-500 font-medium">Equipment</span><strong className="text-gray-900 font-semibold text-right max-w-[60%]">{detailsModalRes.equipment?.length > 0 ? detailsModalRes.equipment.join(', ') : 'None Requested'}</strong></div>
+                {/* Status */}
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-500 font-medium">Status</span>
+                  <strong className={`font-bold uppercase text-[10px] tracking-wider ${
+                    detailsModalRes.status === 'Pending' ? 'text-blue-700' : 
+                    detailsModalRes.status === 'Active' ? 'text-[#991b1b]' : 
+                    'text-red-600'
+                  }`}>{detailsModalRes.status}</strong>
+                </div>
+                
+                {/* Reservation ID */}
+                <div className="flex justify-between items-center text-sm border-t border-gray-200/60 pt-3">
+                  <span className="text-gray-500 font-medium">Reservation ID</span>
+                  <strong className="text-gray-900 font-bold">{detailsModalRes.id}</strong>
+                </div>
+                
+                {/* Space */}
+                <div className="flex justify-between items-center text-sm border-t border-gray-200/60 pt-3">
+                  <span className="text-gray-500 font-medium">Space</span>
+                  <strong className="text-gray-900 font-bold">{detailsModalRes.room?.name || 'Unknown'}</strong>
+                </div>
+                
+                {/* Location */}
+                <div className="flex justify-between items-center text-sm border-t border-gray-200/60 pt-3">
+                  <span className="text-gray-500 font-medium">Location</span>
+                  <strong className="text-gray-900 font-bold">{detailsModalRes.room?.campus || ''} Campus</strong>
+                </div>
+                
+                {/* Date */}
+                <div className="flex justify-between items-center text-sm border-t border-gray-200/60 pt-3">
+                  <span className="text-gray-500 font-medium">Date</span>
+                  <strong className="text-gray-900 font-bold">{formatDate(detailsModalRes.date)}</strong>
+                </div>
+                
+                {/* Time Window */}
+                <div className="flex justify-between items-center text-sm border-t border-gray-200/60 pt-3">
+                  <span className="text-gray-500 font-medium">Time Window</span>
+                  <strong className="text-[#991b1b] font-bold">{parseTime(detailsModalRes.start_time, detailsModalRes.end_time)}</strong>
+                </div>
+                
+                {/* Group Size (Optional but nice to have) */}
+                <div className="flex justify-between items-center text-sm border-t border-gray-200/60 pt-3">
+                  <span className="text-gray-500 font-medium">Group Size</span>
+                  <strong className="text-gray-900 font-bold">{detailsModalRes.group_size || 1} Students</strong>
+                </div>
+                
+                {/* Activity */}
+                <div className="flex justify-between items-start text-sm border-t border-gray-200/60 pt-3">
+                  <span className="text-gray-500 font-medium">Activity</span>
+                  <strong className="text-gray-900 font-semibold text-right max-w-[60%]">{detailsModalRes.activity || 'Not specified'}</strong>
+                </div>
+                
+                {/* Equipment */}
+                <div className="flex justify-between items-start text-sm border-t border-gray-200/60 pt-3">
+                  <span className="text-gray-500 font-medium">Equipment</span>
+                  <strong className="text-gray-900 font-semibold text-right max-w-[60%]">
+                    {detailsModalRes.equipment?.length > 0 ? detailsModalRes.equipment.join(', ') : 'None Requested'}
+                  </strong>
+                </div>
+
+                {/* ✅ NEW: Group Members */}
+                <div className="flex justify-between items-start text-sm border-t border-gray-200/60 pt-3">
+                  <span className="text-gray-500 font-medium">Group Members</span>
+                  <strong className="text-gray-900 font-semibold text-right max-w-[60%]">
+                    {detailsModalRes.group_members?.length > 0 
+                      ? detailsModalRes.group_members.join(', ') 
+                      : 'None'}
+                  </strong>
+                </div>
               </div>
             </div>
             <div className="p-5 bg-gray-50 border-t border-gray-100 flex justify-center">
-              <button onClick={() => setDetailsModalRes(null)} className="w-full px-6 py-3 text-sm font-bold bg-[#991b1b] text-white rounded-lg shadow-sm hover:bg-[#7f1d1d] hover:shadow-md transition-all active:scale-[0.98]">Close Details</button>
+              <button onClick={() => setDetailsModalRes(null)} className="w-full px-6 py-3 text-sm font-bold bg-[#991b1b] text-white rounded-lg shadow-sm hover:bg-[#7f1d1d] hover:shadow-md transition-all active:scale-[0.98]">
+                Close Details
+              </button>
             </div>
           </div>
         </div>

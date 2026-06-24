@@ -225,35 +225,68 @@ export default function BookingPage() {
   };
 
   const handleConfirmBooking = async () => {
-    if (!selectedRoom || selectedSlotIndex === null || !profile) return;
-    setIsSubmitting(true);
-    setError('');
-    const startTime = currentSlots[selectedSlotIndex].time;
-    const endTime = getEndTime(startTime, durationBlocks);
-    const { reservation: newReservation, error: createError } = await createReservation({
-      user_id: profile.user.id,
-      room_id: selectedRoom.id,
-      date: filterDate,
-      start_time: startTime,
-      end_time: endTime,
-      activity,
-      equipment: equipment.length > 0 ? equipment : undefined,
-      group_members: groupMembers.map(m => m.id),
-      group_size: groupMembers.length + 1,
-      status: 'Pending',
-    });
-    if (createError) {
-      setError(createError);
-      setIsSubmitting(false);
+    // 1. Basic checks
+    if (!selectedRoom || selectedSlotIndex === null || !profile) {
+      setError('Missing required information.');
       return;
     }
-    if (notifyCheck && newReservation) {
-      await sendEmailNotification('confirmation', newReservation.id);
+
+    // 2. Extract the student ID (could be null if profile is not a student)
+    const studentId = profile.profile && 'student_id' in profile.profile
+      ? profile.profile.student_id
+      : null;
+
+    // 3. Guard: if we don't have a student ID, show error and stop
+    if (!studentId) {
+      setError('Student profile not found. Please contact support.');
+      return;
     }
-    setIsSubmitting(false);
-    setIsModalOpen(false);
-    handleRoomSelect(null);
-    navigate('/reservations');
+
+    // Now TypeScript knows `studentId` is a string (not null/undefined)
+    setIsSubmitting(true);
+    setError('');
+
+    try {
+      const startTime = currentSlots[selectedSlotIndex].time;
+      const endTime = getEndTime(startTime, durationBlocks);
+
+      const { reservation: newReservation, error: createError } = await createReservation({
+        user_id: studentId, // ✅ Type-safe: always a string
+        room_id: selectedRoom.id,
+        date: filterDate,
+        start_time: startTime,
+        end_time: endTime,
+        activity,
+        equipment: equipment.length > 0 ? equipment : undefined,
+        group_members: groupMembers.map(m => m.id),
+        group_size: groupMembers.length + 1,
+        status: 'Pending',
+      });
+
+      if (createError) {
+        setError(createError);
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (notifyCheck && newReservation) {
+        try {
+          await sendEmailNotification('confirmation', newReservation.id);
+        } catch (emailErr) {
+          console.error('Failed to send email notification:', emailErr);
+          // Non-blocking: reservation was created successfully
+        }
+      }
+
+      setIsSubmitting(false);
+      setIsModalOpen(false);
+      handleRoomSelect(null);
+      navigate('/reservations');
+    } catch (err) {
+      console.error('Unexpected error during booking:', err);
+      setError('An unexpected error occurred while creating the reservation. Please try again.');
+      setIsSubmitting(false);
+    }
   };
 
   const handleLogout = async () => {

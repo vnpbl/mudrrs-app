@@ -59,7 +59,19 @@ export default function Homepage() {
   const loadBookings = useCallback(async () => {
     if (!profile) return;
     setIsLoading(true);
-    const { reservations, error } = await fetchStudentReservations(profile.user.id);
+        // Get the student_id from the profile
+    const studentId = profile.profile && 'student_id' in profile.profile
+      ? (profile.profile as { student_id: string }).student_id
+      : null;
+
+    if (!studentId) {
+      console.warn('No student ID found');
+      setIsLoading(false);
+      return;
+    }
+
+    const { reservations, error } = await fetchStudentReservations(studentId);
+
     if (!error) {
       setBookings(reservations);
     }
@@ -72,7 +84,13 @@ export default function Homepage() {
 
   useEffect(() => {
     if (!profile) return;
-    const unsubscribe = subscribeToUserReservations(profile.user.id, (updatedReservation) => {
+    const studentId = profile.profile && 'student_id' in profile.profile
+      ? (profile.profile as { student_id: string }).student_id
+      : null;
+    
+    if (!studentId) return;
+
+    const unsubscribe = subscribeToUserReservations(studentId, (updatedReservation) => {
       setBookings((prev: any[]) => {
         const exists = prev.find((r: any) => r.id === updatedReservation.id);
         if (exists) {

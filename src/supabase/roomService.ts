@@ -185,8 +185,34 @@ export async function getAvailableTimeSlots(
 }
 
 // Helpers (unchanged)
+// roomService.ts – corrected timeToMinutes
 function timeToMinutes(timeStr: string): number {
-  const [hours, minutes] = timeStr.split(':').map(Number);
+  // Handle 12-hour format: "10:00 AM", "12:30 PM", etc.
+  const parts = timeStr.trim().split(' ');
+  let hours = 0;
+  let minutes = 0;
+  let modifier = '';
+
+  if (parts.length === 2) {
+    // It's "HH:MM AM/PM"
+    const [time, mod] = parts;
+    modifier = mod.toUpperCase();
+    const [h, m] = time.split(':').map(Number);
+    hours = h;
+    minutes = m;
+  } else if (parts.length === 1) {
+    // It's "HH:MM" (24-hour)
+    const [h, m] = timeStr.split(':').map(Number);
+    hours = h;
+    minutes = m;
+  } else {
+    return 0; // fallback
+  }
+
+  // Convert to 24-hour
+  if (modifier === 'PM' && hours !== 12) hours += 12;
+  if (modifier === 'AM' && hours === 12) hours = 0;
+
   return hours * 60 + minutes;
 }
 
