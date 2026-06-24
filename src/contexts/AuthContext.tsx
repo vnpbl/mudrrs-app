@@ -1,5 +1,5 @@
 // src/contexts/AuthContext.tsx
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import type { UserProfile } from '../supabase/authService';
 import {
   getCurrentSession,
@@ -30,6 +30,10 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Session timeout refs
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const SESSION_TIMEOUT_MINUTES = 30; // 30 minutes of inactivity
 
   const loadSession = useCallback(async () => {
     setIsLoading(true);
@@ -48,6 +52,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false);
     }
   }, []);
+
+  // Reset session timeout timer
+  const resetTimeout = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    
+    if (profile) {
+      timeoutRef.current = setTimeout(() => {
+        console.log('⏰ [AuthProvider] Session timeout due to inactivity');
+        supabaseSignOut();
+        setProfile(null);
+        // Optional: Show notification to user
+        const timeoutMessage = document.createElement('div');
+        timeoutMessage.className = 'fixed top-4 right-4 bg-red-600 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+        timeoutMessage.textContent = 'You have been logged out due to inactivity.';
+        document.body.appendChild(timeoutMessage);
+        setTimeout(() => timeoutMessage.remove(), 5000);
+      }, SESSION_TIMEOUT_MINUTES * 60 * 1000);
+    }
+  }, [profile]);
+
+  // Set up activity listeners when user is authenticated
+  useEffect(() => {
+    if (!profile) {
+      // Clear timeout if user logs out
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+      return;
+    }
+
+    const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click', 'mousemove'];
+    const handleActivity = () => resetTimeout();
+    
+    // Add event listeners
+    events.forEach(event => window.addEventListener(event, handleActivity));
+    
+    // Start the initial timer
+    resetTimeout();
+    
+    // Cleanup
+    return () => {
+      events.forEach(event => window.removeEventListener(event, handleActivity));
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
+  }, [profile, resetTimeout]);
 
   useEffect(() => {
     loadSession();
@@ -94,6 +150,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = useCallback(async () => {
     console.log('🚪 [AuthProvider] signOut called');
+    // Clear timeout on manual sign out
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
     await supabaseSignOut();
     setProfile(null);
     console.log('✅ [AuthProvider] signOut complete');
