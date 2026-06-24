@@ -3,10 +3,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchRooms, getAvailableTimeSlots, type RoomRow } from '../supabase/roomService';
 import { createReservation, sendEmailNotification } from '../supabase/reservationService';
+import { verifyStudentExists } from '../supabase/studentService';
 
 interface GroupMember {
   id: string;
-  name: string;
 }
 
 interface TimeSlot {
@@ -21,9 +21,6 @@ const BASE_TIME_BLOCKS = [
   "04:00 PM", "04:30 PM", "05:00 PM", "05:30 PM", "06:00 PM", "06:30 PM",
   "07:00 PM", "07:30 PM", "08:00 PM", "08:30 PM", "09:00 PM"
 ];
-
-const FIRST_NAMES = ["Sofia", "Miguel", "Maria", "Jose", "Isabella", "Gabriel", "Chloe", "Juan"];
-const LAST_NAMES = ["Santos", "Reyes", "Cruz", "Bautista", "Ocampo", "Garcia", "Mendoza", "Torres"];
 
 const timeToMinutes = (timeStr: string) => {
   const [time, modifier] = timeStr.split(' ');
@@ -44,13 +41,6 @@ const minutesToTime = (minutes: number) => {
 
 const getEndTime = (startTime: string, blocks: number) => {
   return minutesToTime(timeToMinutes(startTime) + (blocks * 30));
-};
-
-const generateRealisticName = (idStr: string) => {
-  const num = parseInt(idStr.substring(idStr.length - 4)) || 0;
-  const first = FIRST_NAMES[num % FIRST_NAMES.length];
-  const last = LAST_NAMES[(Math.floor(num / 10)) % LAST_NAMES.length];
-  return `${first} ${last}`;
 };
 
 export default function BookingPage() {
@@ -74,6 +64,7 @@ export default function BookingPage() {
   const [activity, setActivity] = useState<string>('Group Study / Review');
   const [equipment, setEquipment] = useState<string[]>([]);
   const [unavailableSlots, setUnavailableSlots] = useState<Set<string>>(new Set());
+  const [availabilityError, setAvailabilityError] = useState<string>('');
   const [isChecking, setIsChecking] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -125,9 +116,15 @@ export default function BookingPage() {
     if (!selectedRoom) return;
     const loadAvailability = async () => {
       setIsChecking(true);
-      const { availableSlots } = await getAvailableTimeSlots(Number(selectedRoom.id), filterDate);
-      const unavailable = new Set(BASE_TIME_BLOCKS.filter(s => !availableSlots.includes(s)));
-      setUnavailableSlots(unavailable);
+      setAvailabilityError('');
+      const { availableSlots, error } = await getAvailableTimeSlots(Number(selectedRoom.id), filterDate);
+      if (error) {
+        setAvailabilityError(error);
+        setUnavailableSlots(new Set());
+      } else {
+        const unavailable = new Set(BASE_TIME_BLOCKS.filter(s => !availableSlots.includes(s)));
+        setUnavailableSlots(unavailable);
+      }
       setIsChecking(false);
     };
     loadAvailability();
@@ -175,10 +172,15 @@ export default function BookingPage() {
     setEquipment(prev => prev.includes(item) ? prev.filter(i => i !== item) : [...prev, item]);
   };
 
-  const handleAddMember = (e: React.FormEvent) => {
+  const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
     const inputVal = memberSearch.trim();
     if (!inputVal || !selectedRoom) return;
+    const ownStudentId = profile?.profile && 'student_id' in profile.profile ? (profile.profile as { student_id: string }).student_id : null;
+    if (ownStudentId && inputVal === ownStudentId) {
+      setMemberError("You cannot add yourself as a group member.");
+      return;
+    }
     if (groupMembers.length >= selectedRoom.capacity - 1) {
       setMemberError("Room capacity limit reached.");
       return;
@@ -191,8 +193,16 @@ export default function BookingPage() {
       setMemberError("Student is already in the group.");
       return;
     }
-    const foundName = generateRealisticName(inputVal);
-    setGroupMembers(prev => [...prev, { id: inputVal, name: foundName }]);
+    const { exists, error } = await verifyStudentExists(inputVal);
+    if (error) {
+      setMemberError(error);
+      return;
+    }
+    if (!exists) {
+      setMemberError("Student ID not found in the system.");
+      return;
+    }
+    setGroupMembers(prev => [...prev, { id: inputVal }]);
     setMemberSearch('');
     setMemberError('');
   };
@@ -228,7 +238,7 @@ export default function BookingPage() {
       end_time: endTime,
       activity,
       equipment: equipment.length > 0 ? equipment : undefined,
-      group_members: groupMembers.map(m => m.name),
+      group_members: groupMembers.map(m => m.id),
       group_size: groupMembers.length + 1,
       status: 'Pending',
     });
@@ -369,6 +379,10 @@ export default function BookingPage() {
                   <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-3">Start Time</label>
                   {isChecking ? (
                     <div className="text-center py-4"><div className="w-6 h-6 border-4 border-[#991b1b] border-t-transparent rounded-full animate-spin mx-auto mb-2"></div><p className="text-xs text-gray-500">Checking availability...</p></div>
+                  ) : availabilityError ? (
+                    <div className="text-red-600 text-xs font-medium p-2 border border-red-200 rounded bg-red-50">
+                      {availabilityError}
+                    </div>
                   ) : (
                     <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
                       {currentSlots.map((slot, idx) => {
@@ -420,7 +434,7 @@ export default function BookingPage() {
                   <div className="flex flex-wrap gap-2 mt-3">
                     {groupMembers.map((member, idx) => (
                       <div key={idx} className="bg-gray-100 border border-gray-200/80 rounded-full py-1 pl-3 pr-1.5 flex items-center gap-2 text-xs font-bold text-gray-700">
-                        {member.name}
+                        {member.id}
                         <button onClick={() => handleRemoveMember(idx)} className="text-gray-400 hover:text-[#991b1b] transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
                       </div>
                     ))}

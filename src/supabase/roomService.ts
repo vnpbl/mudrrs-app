@@ -150,6 +150,7 @@ export async function getAvailableTimeSlots(
       .in('status', ['Pending', 'Approved', 'Active']);
 
     if (resError) {
+      console.error('getAvailableTimeSlots error:', resError);
       return { availableSlots: [], error: resError.message };
     }
 
@@ -177,7 +178,8 @@ export async function getAvailableTimeSlots(
     });
 
     return { availableSlots, error: null };
-  } catch {
+  } catch (err) {
+    console.error('Unexpected error in getAvailableTimeSlots:', err);
     return { availableSlots: [], error: 'Failed to get available slots.' };
   }
 }
