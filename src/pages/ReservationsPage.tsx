@@ -5,8 +5,17 @@ import { fetchStudentReservations, cancelReservation, sendEmailNotification } fr
 import { subscribeToUserReservations } from '../supabase/realtimeService';
 
 function parseTime(start: string, end: string) {
+  // Extract time part from ISO timestamp if needed
+  const extractTime = (timestamp: string) => {
+    // If it's an ISO timestamp (contains 'T'), extract the time part
+    const timeStr = timestamp.includes('T') ? timestamp.split('T')[1] : timestamp;
+    // Remove seconds if present (HH:MM:SS → HH:MM)
+    const parts = timeStr.split(':');
+    return `${parts[0]}:${parts[1]}`;
+  };
+
   const fmt = (t: string) => {
-    const [h, m] = t.split(':').map(Number);
+    const [h, m] = extractTime(t).split(':').map(Number);
     const ampm = h >= 12 ? 'PM' : 'AM';
     const h12 = h % 12 || 12;
     return `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
@@ -15,13 +24,30 @@ function parseTime(start: string, end: string) {
 }
 
 function getDuration(start: string, end: string) {
-  const [h1, m1] = start.split(':').map(Number);
-  const [h2, m2] = end.split(':').map(Number);
-  const mins = (h2 * 60 + m2) - (h1 * 60 + m1);
-  const hrs = mins / 60;
-  if (hrs < 1) return `${mins} Minutes`;
-  if (hrs === Math.floor(hrs)) return `${hrs} Hour${hrs > 1 ? 's' : ''}`;
-  return `${Math.floor(hrs)}.${(mins % 60) / 30} Hours`;
+  // Handle both ISO timestamps and time strings
+  const getTimeParts = (t: string) => {
+    // If it's an ISO timestamp (contains 'T'), extract the time part
+    const timeStr = t.includes('T') ? t.split('T')[1] : t;
+    // Remove seconds if present (HH:MM:SS → HH:MM)
+    const parts = timeStr.split(':');
+    return { hours: parseInt(parts[0], 10), minutes: parseInt(parts[1], 10) };
+  };
+
+  const startParts = getTimeParts(start);
+  const endParts = getTimeParts(end);
+
+  const startTotalMinutes = startParts.hours * 60 + startParts.minutes;
+  const endTotalMinutes = endParts.hours * 60 + endParts.minutes;
+  const diffMinutes = endTotalMinutes - startTotalMinutes;
+
+  if (diffMinutes <= 0) return '0 Minutes';
+
+  const hours = Math.floor(diffMinutes / 60);
+  const minutes = diffMinutes % 60;
+
+  if (hours === 0) return `${minutes} Minutes`;
+  if (minutes === 0) return `${hours} Hour${hours > 1 ? 's' : ''}`;
+  return `${hours} Hour${hours > 1 ? 's' : ''} ${minutes} Min`;
 }
 
 function formatDate(dateStr: string) {
@@ -113,7 +139,7 @@ export default function ReservationsPage() {
     return reservations.filter((res: any) => {
       const matchesTab = currentTab === 'upcoming' 
         ? (res.status === 'Pending' || res.status === 'Active')
-        : (res.status === 'Completed' || res.status === 'Cancelled' || res.status === 'Rejected');
+        : (res.status === 'Completed' || res.status === 'Cancelled' || res.status === 'Rejected' || res.status === 'Auto-Cancelled');
       const matchesSearch = (res.room?.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
                             res.id.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesCampus = campusFilter === 'All' ? true : res.room?.campus === campusFilter;

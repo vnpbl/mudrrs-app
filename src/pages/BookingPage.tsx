@@ -122,7 +122,21 @@ export default function BookingPage() {
         setAvailabilityError(error);
         setUnavailableSlots(new Set());
       } else {
-        const unavailable = new Set(BASE_TIME_BLOCKS.filter(s => !availableSlots.includes(s)));
+        // Filter out past time slots if the selected date is today
+        const todayStr = new Date().toISOString().split('T')[0];
+        const currentMinutes = new Date().getHours() * 60 + new Date().getMinutes();
+        let filteredSlots = availableSlots;
+
+        if (filterDate === todayStr) {
+          // Only keep slots where the start time is greater than or equal to the current time
+          filteredSlots = availableSlots.filter((slot) => {
+            const slotMinutes = timeToMinutes(slot);
+            return slotMinutes >= currentMinutes;
+          });
+        }
+
+        // Create the unavailable set based on the filtered slots
+        const unavailable = new Set(BASE_TIME_BLOCKS.filter((s) => !filteredSlots.includes(s)));
         setUnavailableSlots(unavailable);
       }
       setIsChecking(false);

@@ -34,8 +34,6 @@ export default function Homepage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [bookings, setBookings] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [notifications, setNotifications] = useState<Notification[]>(SYSTEM_NOTIFICATIONS);
-  const [isClearing, setIsClearing] = useState(false);
 
   const userName = profile?.profile
     ? 'first_name' in profile.profile
@@ -125,14 +123,6 @@ export default function Homepage() {
   const handlePrevMonth = () => setCalendarDate(new Date(year, month - 1, 1));
   const handleNextMonth = () => setCalendarDate(new Date(year, month + 1, 1));
 
-  const handleClearNotifications = () => {
-    setIsClearing(true);
-    setTimeout(() => {
-      setNotifications([]);
-      setIsClearing(false);
-    }, 300);
-  };
-
   const getStatusStyles = (status: string) => {
     switch (status) {
       case 'Active':
@@ -145,8 +135,17 @@ export default function Homepage() {
   };
 
   const formatTime = (start: string, end: string) => {
+    // Helper to extract time part from ISO timestamp if needed
+    const extractTime = (timestamp: string) => {
+      // If it's an ISO timestamp (contains 'T'), extract the time part
+      const timeStr = timestamp.includes('T') ? timestamp.split('T')[1] : timestamp;
+      // Remove seconds if present (HH:MM:SS → HH:MM)
+      const parts = timeStr.split(':');
+      return `${parts[0]}:${parts[1]}`;
+    };
+
     const fmt = (t: string) => {
-      const [h, m] = t.split(':').map(Number);
+      const [h, m] = extractTime(t).split(':').map(Number);
       const ampm = h >= 12 ? 'PM' : 'AM';
       const h12 = h % 12 || 12;
       return `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
@@ -237,7 +236,7 @@ export default function Homepage() {
                 filteredBookings.map((booking: any) => {
                   const styles = getStatusStyles(booking.status);
                   return (
-                    <div key={booking.id} className={`bg-white border border-gray-200/80 rounded-xl p-5 flex flex-col md:grid md:grid-cols-[1.2fr_2fr_auto] gap-4 md:items-center hover:border-gray-300 hover:shadow-sm transition-all ${styles.cardBorder}`}>
+                    <div key={booking.id} onClick={() => navigate('/reservations')} className={`cursor-pointer bg-white border border-gray-200/80 rounded-xl p-5 flex flex-col md:grid md:grid-cols-[1.2fr_2fr_auto] gap-4 md:items-center hover:border-gray-300 hover:shadow-sm transition-all ${styles.cardBorder}`}>
                       <div className="flex md:flex-col justify-between border-b md:border-none border-gray-100 pb-2 md:pb-0">
                         <span className="font-bold text-gray-900 text-sm">{formatDate(booking.date)}</span>
                         <span className="text-gray-500 text-xs font-semibold">{formatTime(booking.start_time, booking.end_time)}</span>
@@ -301,26 +300,23 @@ export default function Homepage() {
             </div>
             <div className="space-y-3.5">
               <div className="flex justify-between items-center">
-                <h2 className="text-sm font-bold text-gray-900 tracking-tight">System Notifications</h2>
-                {notifications.length > 0 && <button onClick={handleClearNotifications} className="text-gray-500 hover:text-[#991b1b] text-xs font-bold transition-colors">Clear All</button>}
+                <h2 className="text-sm font-bold text-gray-900 tracking-tight">Remarks</h2>
               </div>
-              <div className={`flex flex-col gap-3.5 transition-opacity duration-300 ${isClearing ? 'opacity-0' : 'opacity-100'}`}>
-                {notifications.length > 0 ? notifications.map((notif) => (
-                  <div key={notif.id} className="bg-white border border-gray-200 rounded-xl p-5 flex gap-4 shadow-sm hover:border-gray-300 transition-colors">
-                    <div className={`w-9 h-9 rounded-xl flex justify-center items-center shrink-0 ${notif.type === 'alert' ? 'bg-red-50 text-[#991b1b]' : notif.type === 'info' ? 'bg-blue-50 text-blue-700' : 'bg-emerald-50 text-emerald-700'}`}>
-                      {notif.type === 'alert' && <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>}
-                      {notif.type === 'info' && <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>}
-                      {notif.type === 'success' && <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>}
+              <div className="flex flex-col gap-3.5">
+                {SYSTEM_NOTIFICATIONS.map((remark) => (
+                  <div key={remark.id} className="bg-white border border-gray-200 rounded-xl p-5 flex gap-4 shadow-sm hover:border-gray-300 transition-colors">
+                    <div className={`w-9 h-9 rounded-xl flex justify-center items-center shrink-0 ${remark.type === 'alert' ? 'bg-red-50 text-[#991b1b]' : remark.type === 'info' ? 'bg-blue-50 text-blue-700' : 'bg-emerald-50 text-emerald-700'}`}>
+                      {remark.type === 'alert' && <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>}
+                      {remark.type === 'info' && <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>}
+                      {remark.type === 'success' && <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>}
                     </div>
                     <div>
-                      <h4 className="text-sm font-bold text-gray-900 mb-1 leading-snug">{notif.title}</h4>
-                      <p className="text-xs text-gray-500 mb-2 leading-relaxed">{notif.message}</p>
-                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{notif.time}</span>
+                      <h4 className="text-sm font-bold text-gray-900 mb-1 leading-snug">{remark.title}</h4>
+                      <p className="text-xs text-gray-500 leading-relaxed">{remark.message}</p>
+                      {/* ❌ Removed the timestamp line */}
                     </div>
                   </div>
-                )) : (
-                  <div className="text-center p-8 text-gray-400 text-xs font-semibold bg-white border border-dashed border-gray-200 rounded-xl">You're all caught up! No active notices.</div>
-                )}
+                ))}
               </div>
             </div>
           </aside>

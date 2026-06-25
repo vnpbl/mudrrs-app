@@ -139,14 +139,17 @@ export async function getAvailableTimeSlots(
   operatingHours: { open: string; close: string } = { open: '07:00', close: '21:00' }
 ): Promise<{ availableSlots: string[]; error: string | null }> {
   try {
-    const startBoundary = `${date}T${operatingHours.open}:00`;
-    const endBoundary = `${date}T${operatingHours.close}:00`;
+    // Build the date range for the selected date (entire day)
+    const startOfDay = `${date}T00:00:00`;
+    const endOfDay = `${date}T23:59:59`;
+
+    // Fetch reservations for this room that fall on the selected date
     const { data: reservations, error: resError } = await supabase
       .from('reservations')
       .select('start_time, end_time')
       .eq('room_id', roomId)
-      .gte('start_time', startBoundary)
-      .lte('end_time', endBoundary)
+      .gte('start_time', startOfDay)      // Only start on or after midnight of selected date
+      .lte('start_time', endOfDay)        // Only start on or before 11:59 PM of selected date
       .in('status', ['Pending', 'Approved', 'Active']);
 
     if (resError) {
@@ -154,6 +157,7 @@ export async function getAvailableTimeSlots(
       return { availableSlots: [], error: resError.message };
     }
 
+    // Generate all possible 30-minute slots from open to close
     const allSlots: string[] = [];
     const openMinutes = timeToMinutes(operatingHours.open);
     const closeMinutes = timeToMinutes(operatingHours.close);
@@ -161,6 +165,7 @@ export async function getAvailableTimeSlots(
       allSlots.push(minutesToTime(m));
     }
 
+    // Mark booked slots
     const bookedSlots = new Set<number>();
     for (const res of reservations || []) {
       const resStart = new Date(res.start_time);
@@ -172,6 +177,7 @@ export async function getAvailableTimeSlots(
       }
     }
 
+    // Filter out booked slots
     const availableSlots = allSlots.filter((slot) => {
       const slotMinutes = timeToMinutes(slot);
       return !bookedSlots.has(slotMinutes);
