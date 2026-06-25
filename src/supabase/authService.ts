@@ -118,6 +118,94 @@ export async function signUpStudent(
   }
 }
 
+// ---------- SIGN UP (STAFF) ----------
+// ---------- SIGN UP (STAFF) ----------
+export async function signUpStaff(
+  email: string,
+  password: string,
+  staffId: string,
+  firstName: string,
+  lastName: string,
+  assignedCampus?: string
+): Promise<{ user: UserRow | null; error: string | null }> {
+  console.log('📝 [signUpStaff] Attempting to create staff account for:', email);
+  console.log('📝 [signUpStaff] Metadata to send:', { staffId, firstName, lastName, assignedCampus });
+
+  try {
+    // 1. Create auth user with metadata
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          is_staff: true,                        // ✅ REQUIRED flag for trigger
+          staff_id: staffId,
+          first_name: firstName,
+          last_name: lastName,
+          campus: assignedCampus || 'Makati',    // ✅ Use "campus" (not "assigned_campus")
+        },
+      },
+    });
+
+    if (authError) {
+      console.error('❌ [signUpStaff] Auth creation failed:', authError.message, authError);
+      return { user: null, error: authError.message };
+    }
+
+    if (!authData.user) {
+      console.error('❌ [signUpStaff] No user returned from auth');
+      return { user: null, error: 'Failed to create user. Please try again.' };
+    }
+
+    console.log('✅ [signUpStaff] Auth user created:', authData.user.id, authData.user.email);
+    console.log('   Raw metadata:', authData.user.user_metadata);
+
+    // 2. Wait a moment for the trigger to run
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // 3. Fetch the newly created user from public.users
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', authData.user.email!)
+      .single();
+
+    if (userError || !userData) {
+      console.error('❌ [signUpStaff] Failed to retrieve public user record:', userError);
+      return { user: null, error: 'User created but profile retrieval failed. Please contact support.' };
+    }
+
+    console.log('✅ [signUpStaff] Public user record found:', userData);
+
+    const userRow: UserRow = {
+      user_id: userData.user_id,
+      email: userData.email,
+      role: userData.role,
+      id: String(userData.user_id),
+    };
+
+    // 4. Verify staff record was also created
+    const { data: staffData, error: staffCheckError } = await supabase
+      .from('library_staff')
+      .select('*')
+      .eq('user_id', userData.user_id)
+      .single();
+
+    if (staffCheckError) {
+      console.warn('⚠️ [signUpStaff] Staff record not found yet (might be trigger delay):', staffCheckError);
+    } else {
+      console.log('✅ [signUpStaff] Staff record confirmed:', staffData);
+    }
+
+    console.log('🎉 [signUpStaff] Staff signup completed successfully for:', email);
+    return { user: userRow, error: null };
+
+  } catch (err) {
+    console.error('💥 [signUpStaff] Unexpected error:', err);
+    return { user: null, error: 'An unexpected error occurred during registration.' };
+  }
+}
+
 // ---------- SIGN IN ----------
 export async function signIn(
   email: string,

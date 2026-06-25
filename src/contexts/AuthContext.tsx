@@ -5,6 +5,7 @@ import {
   getCurrentSession,
   signIn as supabaseSignIn,
   signUpStudent as supabaseSignUp,
+  signUpStaff as supabaseSignUpStaff,
   signOut as supabaseSignOut,
 } from '../supabase/authService';
 
@@ -20,6 +21,14 @@ interface AuthContextType {
     studentId: string,
     firstName: string,
     lastName: string
+  ) => Promise<{ error: string | null }>;
+  signUpStaff: (
+    email: string,
+    password: string,
+    staffId: string,
+    firstName: string,
+    lastName: string,
+    assignedCampus?: string
   ) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   refreshSession: () => Promise<void>;
@@ -148,6 +157,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
+  const signUpStaff = useCallback(
+    async (
+      email: string,
+      password: string,
+      staffId: string,
+      firstName: string,
+      lastName: string,
+      assignedCampus?: string
+    ): Promise<{ error: string | null }> => {
+      console.log('📝 [AuthProvider] signUpStaff called for:', email);
+      const { user, error } = await supabaseSignUpStaff(email, password, staffId, firstName, lastName, assignedCampus);
+      if (error) {
+        console.error('❌ [AuthProvider] signUpStaff failed:', error);
+        return { error };
+      }
+      if (user) {
+        console.log('✅ [AuthProvider] signUpStaff successful, user:', user);
+      } else {
+        console.warn('⚠️ [AuthProvider] signUpStaff returned user=null but no error');
+      }
+      return { error: null };
+    },
+    []
+  );
+
   const signOut = useCallback(async () => {
     console.log('🚪 [AuthProvider] signOut called');
     // Clear timeout on manual sign out
@@ -172,6 +206,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isStaff: profile?.user.role === 'Library Staff',
     signIn,
     signUp,
+    signUpStaff,
     signOut,
     refreshSession,
   };

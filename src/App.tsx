@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
+import StaffSignupPage from "./pages/StaffSignupPage";
 import Homepage from "./pages/Homepage";
 import BookingPage from "./pages/BookingPage";
 import ReservationsPage from "./pages/ReservationsPage";
@@ -91,6 +92,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/" element={<GuestRoute><LoginPage /></GuestRoute>} />
       <Route path="/signup" element={<GuestRoute><SignupPage /></GuestRoute>} />
+      <Route path="/staff-signup" element={<GuestRoute><StaffSignupPage /></GuestRoute>} />
       <Route path="/dashboard" element={<ProtectedRoute><Homepage /></ProtectedRoute>} />
       <Route path="/book" element={<ProtectedRoute><BookingPage /></ProtectedRoute>} />
       <Route path="/reservations" element={<ProtectedRoute><ReservationsPage /></ProtectedRoute>} />
