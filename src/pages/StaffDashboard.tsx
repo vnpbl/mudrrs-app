@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchRooms, createRoom, updateRoom } from '../supabase/roomService';
-import { fetchAllReservations, approveReservation, rejectReservation, checkInReservation, checkOutReservation } from '../supabase/reservationService';
+import { fetchAllReservations, approveReservation, rejectReservation, checkInReservation, checkOutReservation, cancelReservation} from '../supabase/reservationService';
 import { subscribeToReservations, subscribeToRooms } from '../supabase/realtimeService';
 import type { RoomRow, ReservationWithRoom } from '../supabase/types';
 
@@ -144,10 +144,64 @@ export const StaffDashboard: React.FC = () => {
     setError('');
   };
 
-  const handleCheckIn = async (reservationId: string) => {
-    const { error: checkInError } = await checkInReservation(Number(reservationId));
-    if (checkInError) setError(checkInError);
-  };
+  //updated
+const handleCheckIn = async (reservationId: string) => {
+  // Find the reservation to check time
+  const reservation = reservations.find(r => r.id === reservationId);
+  if (!reservation) {
+    setError('Reservation not found');
+    return;
+  }
+
+  const startTime = new Date(reservation.start_time);
+  const now = new Date();
+  const diffMinutes = (now.getTime() - startTime.getTime()) / 60000;
+  const GRACE_PERIOD = 15; // 15 minutes
+
+  let confirmMessage = 'Confirm student check-in?';
+  
+  if (diffMinutes > GRACE_PERIOD) {
+    // Beyond grace period - will auto-cancel
+    confirmMessage = `❌ Student is ${Math.round(diffMinutes)} minutes late. Grace period (${GRACE_PERIOD} minutes) has expired. This will CANCEL the reservation. Confirm?`;
+    if (!window.confirm(confirmMessage)) return;
+    
+    // Auto-cancel the reservation
+    const { error: cancelError } = await cancelReservation(Number(reservationId));
+    if (cancelError) {
+      setError(cancelError);
+    } else {
+      setError(''); 
+      // Show success message
+      alert('❌ Reservation cancelled - student exceeded grace period.');
+      await loadData(); 
+    }
+    return;
+  } 
+  
+  if (diffMinutes > 0 && diffMinutes <= GRACE_PERIOD) {
+    // Late but within grace period
+    confirmMessage = `⚠️ Student is ${Math.round(diffMinutes)} minutes late (within ${GRACE_PERIOD}-minute grace period). Confirm check-in?`;
+    if (!window.confirm(confirmMessage)) return;
+  } else {
+    // On time
+    if (!window.confirm(confirmMessage)) return;
+  }
+
+  // Proceed with check-in
+  const { error: checkInError } = await checkInReservation(Number(reservationId));
+  if (checkInError) {
+    setError(checkInError);
+  } else {
+    setError('');
+    // Show success with status
+    if (diffMinutes > 0 && diffMinutes <= GRACE_PERIOD) {
+      alert(`Checked in successfully (${Math.round(diffMinutes)} minutes late - within grace period)`);
+    } else {
+      alert('Checked in successfully!');
+    }
+    await loadData(); 
+  }
+};
 
   const handleCheckOut = async (reservationId: string) => {
     const { error: checkOutError } = await checkOutReservation(Number(reservationId));
