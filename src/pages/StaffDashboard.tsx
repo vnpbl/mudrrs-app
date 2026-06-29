@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { sendReservationEmail }  from '../services/emailService';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchRooms, createRoom, updateRoom } from '../supabase/roomService';
 import { 
@@ -13,6 +14,7 @@ import {
 import { subscribeToReservations, subscribeToRooms } from '../supabase/realtimeService';
 import type { RoomRow, ReservationWithRoom } from '../supabase/types';
 import * as XLSX from 'xlsx';
+import { supabase } from '../supabase/client';
 
 export const StaffDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -148,20 +150,75 @@ const campusMetrics = useMemo(() => {
 
   const handleRequestDecision = async (id: string, action: 'Approved' | 'Rejected') => {
     if (!window.confirm(`Confirm action: ${action} this reservation?`)) return;
-    
+
     try {
+      // 1. Update reservation status
       if (action === 'Approved') {
         await approveReservation(Number(id));
       } else {
         await rejectReservation(Number(id));
       }
-      // ✅ Refresh data after successful update
+
+      // 2. Fetch reservation with student data
+      const { data: reservation, error: fetchError } = await supabase
+        .from('reservations')
+        .select('*, student:students(*)')
+        .eq('reservation_id', Number(id))
+        .single();
+
+      if (fetchError || !reservation) {
+        console.error('❌ Failed to fetch reservation:', fetchError);
+        setError('Reservation not found.');
+        return;
+      }
+
+      const student = reservation.student;
+      if (!student) {
+        console.error('❌ No student linked to this reservation.');
+        setError('Student not found.');
+        return;
+      }
+
+      // 3. ✅ Fetch the user email from the `users` table using student.user_id
+      const { data: user, error: userError } = await supabase
+        .from('users')
+        .select('email')
+        .eq('user_id', student.user_id)
+        .single();
+
+      if (userError || !user) {
+        console.error('❌ Failed to fetch user email:', userError);
+        setError('Student email not found.');
+        return;
+      }
+
+      console.log(`✅ Found email: ${user.email} for student ${student.student_id}`);
+
+      // 4. ✅ Now send the email using the fetched email
+      const templateType = action === 'Approved' ? 'confirmation' : 'rejection';
+      const emailResult = await sendReservationEmail(templateType, {
+        to_email: user.email,   // ✅ The email we just fetched
+        student_name: `${student.first_name} ${student.last_name}`,
+        room_name: reservation.room_name || 'Unknown Room',
+        campus: reservation.campus || 'Unknown Campus',
+        date: new Date(reservation.start_time).toLocaleDateString(),
+        start_time: new Date(reservation.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        end_time: new Date(reservation.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        status: action,
+      });
+
+      if (!emailResult.success) {
+        console.warn('⚠️ Email failed but booking was updated:', emailResult.error);
+        // Non-blocking – the reservation update succeeded
+      }
+
+      // 5. Refresh the dashboard
       await loadData();
-    } catch (err) {
-      setError('Failed to update reservation status.');
-      console.error(err);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('💥 handleRequestDecision error:', errorMessage);
+      setError(`Failed to update reservation: ${errorMessage}`);
     }
-    await loadData();
   };
 
   const handleStatusToggle = async (roomId: string, nextStatus: 'Active' | 'Maintenance') => {
@@ -625,6 +682,30 @@ function LiveBoardView({
             className={`px-5 py-2 rounded-lg text-sm font-bold transition-colors ${activeTab === 'approved' ? 'bg-gray-900 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
           >
             Approved Bookings {approvedRequests.length > 0 && <span className="ml-1 bg-blue-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{approvedRequests.length}</span>}
+          </button>
+          <button
+            onClick={async () => {
+              const templateType = "confirmation"; // or "rejection" based on your test case
+              const result = await sendReservationEmail(templateType, {
+                to_email: "mearvindominicb@gmail.com", // Change to your email
+                student_name: "Test Student",
+                room_name: "Discussion Room A",
+                campus: "Makati",
+                date: "June 30, 2026",
+                start_time: "10:00 AM",
+                end_time: "11:30 AM",
+                status: "Approved",
+              });
+
+              if (result.success) {
+                alert('✅ Test email sent! Check your inbox (and spam folder).');
+              } else {
+                alert('❌ Failed to send: ' + result.error);
+              }
+            }}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700"
+          >
+            📧 Test Email
           </button>
         </div>
         
