@@ -1,4 +1,5 @@
 import React from 'react';
+import * as XLSX from 'xlsx';
 import { type BookingDatabase, type RegistryRoom, type PendingRequest } from '../types';
 
 interface LiveBoardProps {
@@ -15,6 +16,7 @@ interface LiveBoardProps {
   activeBookingsCount: number;
   liveUtilizationRate: number;
   handleRequestDecision: (id: string, name: string, action: 'Approved' | 'Rejected') => void;
+  // onExport?: () => void;
 }
 
 export const LiveBoardView: React.FC<LiveBoardProps> = ({
@@ -31,6 +33,55 @@ export const LiveBoardView: React.FC<LiveBoardProps> = ({
   liveUtilizationRate,
   handleRequestDecision,
 }) => {
+  // Helper function to get all bookings as a flat array for export
+  const getAllBookingsForExport = () => {
+    const allBookings: any[] = [];
+    
+    Object.keys(bookings).forEach(date => {
+      bookings[date].forEach(booking => {
+        allBookings.push({
+          'Date': date,
+          'Room': booking.room || 'Unknown',
+          'Campus': booking.campus || 'Unknown',
+          'Time': booking.time || 'Unknown',
+          'Student': booking.student || 'Unknown',
+          // 'Status' removed since it doesn't exist on Booking type
+        });
+      });
+    });
+    
+    return allBookings;
+  };
+
+  // Export to Excel function
+  const handleExportToExcel = () => {
+    const exportData = getAllBookingsForExport();
+    
+    if (exportData.length === 0) {
+      alert('No bookings available to export.');
+      return;
+    }
+
+    // Create worksheet
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    
+    // Auto-size columns
+    const colWidths = Object.keys(exportData[0] || {}).map(() => ({ wch: 20 }));
+    worksheet['!cols'] = colWidths;
+
+    // Create workbook
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Bookings');
+
+    // Generate filename with date
+    const filename = `Bookings_Export_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+    // Download file
+    XLSX.writeFile(workbook, filename);
+    
+    alert(`✅ Exported ${exportData.length} bookings to ${filename}`);
+  };
+
   return (
     <>
       <section className="welcome-banner">
@@ -43,7 +94,21 @@ export const LiveBoardView: React.FC<LiveBoardProps> = ({
             <div className="analytics-mini-badge"><span className="badge-number">{liveUtilizationRate}%</span><span className="badge-label">Utilization Rate</span></div>
           </div>
         </div>
-        <button className="prime-action-btn" onClick={() => alert("Loading systemic logs file logs...")}>System Log</button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button 
+            className="prime-action-btn" 
+            onClick={handleExportToExcel}
+            style={{ 
+              backgroundColor: '#059669', 
+              borderColor: '#059669' 
+            }}
+          >
+            📊 Export to Excel
+          </button>
+          <button className="prime-action-btn" onClick={() => alert("Loading systemic logs file logs...")}>
+            System Log
+          </button>
+        </div>
       </section>
 
       <header className="dashboard-header-block">
@@ -64,7 +129,9 @@ export const LiveBoardView: React.FC<LiveBoardProps> = ({
       <div className="admin-grid">
         <div className="left-column">
           <section className="section-card">
-            <div className="card-title-area"><h2>Live Room Monitor</h2></div>
+            <div className="card-title-area">
+              <h2>Live Room Monitor</h2>
+            </div>
             <div className="room-schedule-grid">
               {filteredLiveMonitorView.length === 0 ? (
                 <p className="empty-state-text">No active rooms synchronized from system registry node logs.</p>
@@ -88,7 +155,9 @@ export const LiveBoardView: React.FC<LiveBoardProps> = ({
           </section>
 
           <section className="section-card">
-            <div className="card-title-area"><h2>Pending Requests Queue ({requests.length})</h2></div>
+            <div className="card-title-area">
+              <h2>Pending Requests Queue ({requests.length})</h2>
+            </div>
             <div className="table-container">
               <table>
                 <thead>
