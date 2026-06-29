@@ -5,11 +5,8 @@ import { fetchStudentReservations, cancelReservation, sendEmailNotification } fr
 import { subscribeToUserReservations } from '../supabase/realtimeService';
 
 function parseTime(start: string, end: string) {
-  // Extract time part from ISO timestamp if needed
   const extractTime = (timestamp: string) => {
-    // If it's an ISO timestamp (contains 'T'), extract the time part
     const timeStr = timestamp.includes('T') ? timestamp.split('T')[1] : timestamp;
-    // Remove seconds if present (HH:MM:SS → HH:MM)
     const parts = timeStr.split(':');
     return `${parts[0]}:${parts[1]}`;
   };
@@ -24,11 +21,8 @@ function parseTime(start: string, end: string) {
 }
 
 function getDuration(start: string, end: string) {
-  // Handle both ISO timestamps and time strings
   const getTimeParts = (t: string) => {
-    // If it's an ISO timestamp (contains 'T'), extract the time part
     const timeStr = t.includes('T') ? t.split('T')[1] : t;
-    // Remove seconds if present (HH:MM:SS → HH:MM)
     const parts = timeStr.split(':');
     return { hours: parseInt(parts[0], 10), minutes: parseInt(parts[1], 10) };
   };
@@ -106,7 +100,10 @@ export default function ReservationsPage() {
 
     const { reservations: data, error: fetchError } = await fetchStudentReservations(studentId);
     if (!fetchError) {
+      console.log('📊 Loaded reservations:', data);
       setReservations(data);
+    } else {
+      console.error('Error loading reservations:', fetchError);
     }
     setIsLoading(false);
   }, [profile]);
@@ -124,6 +121,7 @@ export default function ReservationsPage() {
     if (!studentId) return;
 
     const unsubscribe = subscribeToUserReservations(studentId, (updatedReservation) => {
+      console.log('🔄 Real-time update received:', updatedReservation);
       setReservations((prev: any[]) => {
         const exists = prev.find((r: any) => r.id === updatedReservation.id);
         if (exists) {
@@ -135,23 +133,37 @@ export default function ReservationsPage() {
     return () => unsubscribe();
   }, [profile]);
 
+  // ============ Process reservations with proper filtering ============
   const processedReservations = useMemo(() => {
-    return reservations.filter((res: any) => {
+    const filtered = reservations.filter((res: any) => {
       const matchesTab = currentTab === 'upcoming' 
-        ? (res.status === 'Pending' || res.status === 'Active')
+        ? (res.status === 'Pending' || res.status === 'Active' || res.status === 'Approved')
         : (res.status === 'Completed' || res.status === 'Cancelled' || res.status === 'Rejected' || res.status === 'Auto-Cancelled');
       const matchesSearch = (res.room?.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
                             res.id.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesCampus = campusFilter === 'All' ? true : res.room?.campus === campusFilter;
       return matchesTab && matchesSearch && matchesCampus;
     });
+    console.log('📊 Processed reservations:', filtered.length);
+    return filtered;
   }, [reservations, currentTab, searchQuery, campusFilter]);
 
+  // ============ Stats calculation from ALL reservations ============
   const stats = useMemo(() => {
+    // Calculate from ALL reservations, not just filtered
+    const active = reservations.filter((r: any) => r.status === 'Active').length;
+    const upcoming = reservations.filter((r: any) => r.status === 'Pending' || r.status === 'Approved').length;
+    const completed = reservations.filter((r: any) => r.status === 'Completed').length;
+    const cancelled = reservations.filter((r: any) => r.status === 'Cancelled' || r.status === 'Rejected' || r.status === 'Auto-Cancelled').length;
+    
+    console.log('📊 Stats - Active:', active, 'Upcoming:', upcoming, 'Completed:', completed, 'Cancelled:', cancelled);
+    
     return {
-      active: reservations.filter((r: any) => r.status === 'Active').length,
-      upcoming: reservations.filter((r: any) => r.status === 'Pending').length,
-      completed: reservations.filter((r: any) => r.status === 'Completed').length,
+      active,
+      upcoming,
+      completed,
+      cancelled,
+      total: reservations.length,
     };
   }, [reservations]);
 
@@ -174,15 +186,18 @@ export default function ReservationsPage() {
     setIsCancelling(false);
     setCancelModalRes(null);
     setCurrentTab('history');
+    await loadReservations();
   };
 
   const getStatusBadgeStyle = (status: string) => {
     switch (status) {
       case 'Active': return 'bg-red-50 text-[#991b1b] border-red-200';
-      case 'Pending': return 'bg-blue-50 text-blue-700 border-blue-200';
+      case 'Approved': return 'bg-blue-50 text-blue-700 border-blue-200';
+      case 'Pending': return 'bg-yellow-50 text-yellow-700 border-yellow-200';
       case 'Completed': return 'bg-gray-100 text-gray-600 border-gray-200';
       case 'Cancelled': return 'bg-red-50 text-red-600 border-red-200 opacity-80';
       case 'Rejected': return 'bg-red-50 text-red-600 border-red-200 opacity-80';
+      case 'Auto-Cancelled': return 'bg-red-50 text-red-600 border-red-200 opacity-80';
       default: return 'bg-gray-100 text-gray-600 border-gray-200';
     }
   };
@@ -271,7 +286,7 @@ export default function ReservationsPage() {
               processedReservations.map((res: any) => {
                 const timeWindow = parseTime(res.start_time, res.end_time);
                 const duration = getDuration(res.start_time, res.end_time);
-                const canCancel = res.status === 'Pending' && isCancelable(res.date, res.start_time);
+                const canCancel = (res.status === 'Pending' || res.status === 'Approved') && isCancelable(res.date, res.start_time);
                 return (
                   <div key={res.id} className="bg-white border border-gray-200/80 rounded-xl p-5 shadow-sm hover:border-gray-300 hover:shadow-sm transition-all">
                     <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-4 mb-4 border-b border-gray-100 pb-4">
@@ -312,9 +327,36 @@ export default function ReservationsPage() {
             <div className="bg-white border border-gray-200/80 rounded-xl p-6 shadow-sm">
               <h2 className="text-sm font-bold text-gray-900 tracking-tight mb-4">Booking Overview</h2>
               <div className="flex flex-col gap-3">
-                <div className="flex justify-between items-center"><span className="flex items-center gap-2 text-sm font-semibold text-gray-700"><div className="w-2.5 h-2.5 rounded-full bg-[#991b1b]"></div>Active Now</span><span className="font-bold text-gray-900">{stats.active}</span></div>
-                <div className="flex justify-between items-center"><span className="flex items-center gap-2 text-sm font-semibold text-gray-700"><div className="w-2.5 h-2.5 rounded-full bg-blue-500"></div>Upcoming</span><span className="font-bold text-gray-900">{stats.upcoming}</span></div>
-                <div className="flex justify-between items-center pt-3 border-t border-gray-100"><span className="flex items-center gap-2 text-sm font-semibold text-gray-700"><div className="w-2.5 h-2.5 rounded-full bg-gray-300"></div>Completed</span><span className="font-bold text-gray-900">{stats.completed}</span></div>
+                <div className="flex justify-between items-center">
+                  <span className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                    <div className="w-2.5 h-2.5 rounded-full bg-[#991b1b]"></div>Active Now
+                  </span>
+                  <span className="font-bold text-gray-900">{stats.active}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                    <div className="w-2.5 h-2.5 rounded-full bg-yellow-500"></div>Upcoming
+                  </span>
+                  <span className="font-bold text-gray-900">{stats.upcoming}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>Completed
+                  </span>
+                  <span className="font-bold text-gray-900">{stats.completed}</span>
+                </div>
+                <div className="flex justify-between items-center pt-3 border-t border-gray-100">
+                  <span className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                    <div className="w-2.5 h-2.5 rounded-full bg-red-400"></div>Cancelled/Rejected
+                  </span>
+                  <span className="font-bold text-gray-900">{stats.cancelled}</span>
+                </div>
+                <div className="flex justify-between items-center pt-3 border-t-2 border-gray-200">
+                  <span className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+                    Total Reservations
+                  </span>
+                  <span className="font-bold text-[#991b1b] text-lg">{stats.total}</span>
+                </div>
               </div>
             </div>
             <div className="bg-red-50 border border-red-100 rounded-xl p-5 flex gap-3">
@@ -351,67 +393,58 @@ export default function ReservationsPage() {
             </div>
             <div className="p-6">
               <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 flex flex-col gap-3">
-                {/* Status */}
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-gray-500 font-medium">Status</span>
                   <strong className={`font-bold uppercase text-[10px] tracking-wider ${
-                    detailsModalRes.status === 'Pending' ? 'text-blue-700' : 
+                    detailsModalRes.status === 'Pending' ? 'text-yellow-700' : 
+                    detailsModalRes.status === 'Approved' ? 'text-blue-700' :
                     detailsModalRes.status === 'Active' ? 'text-[#991b1b]' : 
                     'text-red-600'
                   }`}>{detailsModalRes.status}</strong>
                 </div>
                 
-                {/* Reservation ID */}
                 <div className="flex justify-between items-center text-sm border-t border-gray-200/60 pt-3">
                   <span className="text-gray-500 font-medium">Reservation ID</span>
                   <strong className="text-gray-900 font-bold">{detailsModalRes.id}</strong>
                 </div>
                 
-                {/* Space */}
                 <div className="flex justify-between items-center text-sm border-t border-gray-200/60 pt-3">
                   <span className="text-gray-500 font-medium">Space</span>
                   <strong className="text-gray-900 font-bold">{detailsModalRes.room?.name || 'Unknown'}</strong>
                 </div>
                 
-                {/* Location */}
                 <div className="flex justify-between items-center text-sm border-t border-gray-200/60 pt-3">
                   <span className="text-gray-500 font-medium">Location</span>
                   <strong className="text-gray-900 font-bold">{detailsModalRes.room?.campus || ''} Campus</strong>
                 </div>
                 
-                {/* Date */}
                 <div className="flex justify-between items-center text-sm border-t border-gray-200/60 pt-3">
                   <span className="text-gray-500 font-medium">Date</span>
                   <strong className="text-gray-900 font-bold">{formatDate(detailsModalRes.date)}</strong>
                 </div>
                 
-                {/* Time Window */}
                 <div className="flex justify-between items-center text-sm border-t border-gray-200/60 pt-3">
                   <span className="text-gray-500 font-medium">Time Window</span>
                   <strong className="text-[#991b1b] font-bold">{parseTime(detailsModalRes.start_time, detailsModalRes.end_time)}</strong>
                 </div>
                 
-                {/* Group Size (Optional but nice to have) */}
                 <div className="flex justify-between items-center text-sm border-t border-gray-200/60 pt-3">
                   <span className="text-gray-500 font-medium">Group Size</span>
                   <strong className="text-gray-900 font-bold">{detailsModalRes.group_size || 1} Students</strong>
                 </div>
                 
-                {/* Activity */}
                 <div className="flex justify-between items-start text-sm border-t border-gray-200/60 pt-3">
                   <span className="text-gray-500 font-medium">Activity</span>
                   <strong className="text-gray-900 font-semibold text-right max-w-[60%]">{detailsModalRes.activity || 'Not specified'}</strong>
                 </div>
                 
-                {/* Equipment */}
                 <div className="flex justify-between items-start text-sm border-t border-gray-200/60 pt-3">
-                  <span className="text-gray-500 font-medium">Equipment</span>
+                                   <span className="text-gray-500 font-medium">Equipment</span>
                   <strong className="text-gray-900 font-semibold text-right max-w-[60%]">
                     {detailsModalRes.equipment?.length > 0 ? detailsModalRes.equipment.join(', ') : 'None Requested'}
                   </strong>
                 </div>
 
-                {/* ✅ NEW: Group Members */}
                 <div className="flex justify-between items-start text-sm border-t border-gray-200/60 pt-3">
                   <span className="text-gray-500 font-medium">Group Members</span>
                   <strong className="text-gray-900 font-semibold text-right max-w-[60%]">
