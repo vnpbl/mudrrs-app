@@ -1,3 +1,5 @@
+// LoginPage.tsx - Updated
+
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -15,8 +17,8 @@ export const LoginPage: React.FC = () => {
     e.preventDefault();
     setError('');
 
-    if (!email.toLowerCase().endsWith('@mymail.mapua.edu.ph')) {
-      setError('Access restricted to valid @mymail.mapua.edu.ph accounts.');
+    if (!email.includes('@')) {
+      setError('Please enter a valid email address.');
       return;
     }
 
@@ -63,15 +65,26 @@ export const LoginPage: React.FC = () => {
           <div className="w-full max-w-md mx-auto">
             <div className="mb-9">
               <h2 className="text-3xl font-bold text-gray-900 tracking-tight mb-2">Sign In</h2>
-              <p className="text-sm text-gray-500">Please enter your institutional MyMapúa credentials.</p>
+              <p className="text-sm text-gray-500">Please enter your credentials.</p>
             </div>
             <form onSubmit={handleLogin} autoComplete="off" className="space-y-6">
               <div className="flex flex-col gap-2">
-                <label htmlFor="email" className="text-sm font-semibold text-gray-700">MyMapúa Email</label>
+                <label htmlFor="email" className="text-sm font-semibold text-gray-700">Email Address</label>
                 <div className="relative flex items-center">
                   <svg className="absolute left-4 w-5 h-5 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.206"></path></svg>
-                  <input type="email" id="email" placeholder="username@mymail.mapua.edu.ph" required value={email} onChange={(e) => setEmail(e.target.value)} className={`w-full pl-11 pr-4 py-3.5 bg-gray-50 border ${error && email.length > 0 ? 'border-red-500' : 'border-gray-200'} rounded-xl text-sm text-gray-900 focus:bg-white focus:border-[#991b1b] focus:ring-4 focus:ring-[#991b1b]/10 outline-none transition-all`} />
+                  <input 
+                    type="email" 
+                    id="email" 
+                    placeholder=" " 
+                    required 
+                    value={email} 
+                    onChange={(e) => setEmail(e.target.value)} 
+                    className={`w-full pl-11 pr-4 py-3.5 bg-gray-50 border ${error && email.length > 0 ? 'border-red-500' : 'border-gray-200'} rounded-xl text-sm text-gray-900 focus:bg-white focus:border-[#991b1b] focus:ring-4 focus:ring-[#991b1b]/10 outline-none transition-all`} 
+                  />
                 </div>
+                <small className="text-xs text-gray-400 mt-1">
+                  Students: Use your @mymail.mapua.edu.ph • Staff: Use your @mapua.edu.ph
+                </small>
               </div>
               <div className="flex flex-col gap-2">
                 <label htmlFor="password" className="text-sm font-semibold text-gray-700">Password</label>
@@ -84,7 +97,7 @@ export const LoginPage: React.FC = () => {
                 {error && <span className="text-sm font-medium text-red-600">{error}</span>}
               </div>
               <button type="submit" disabled={isLoading} className="w-full flex justify-center items-center gap-2 bg-[#991b1b] hover:bg-[#7f1d1d] disabled:bg-gray-400 disabled:cursor-not-allowed text-white py-3.5 px-6 rounded-xl text-[0.938rem] font-bold shadow-lg shadow-[#991b1b]/20 transition-all group">
-                <span>{isLoading ? 'Verifying Identity...' : 'Sign In with MyMapúa'}</span>
+                <span>{isLoading ? 'Verifying Identity...' : 'Sign In'}</span>
                 {!isLoading && <svg className="w-5 h-5 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>}
               </button>
               <div className="text-center pt-2">
