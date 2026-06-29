@@ -46,7 +46,6 @@ export const StaffDashboard: React.FC = () => {
     console.log('🔍 [loadData] Rooms fetched:', fetchedRooms.length);
     
     const { reservations: fetchedReservations } = await fetchAllReservations({
-      // Remove date filter to get ALL reservations
     });
     
     console.log('🔍 [loadData] All reservations fetched:', fetchedReservations.length);
@@ -102,27 +101,40 @@ export const StaffDashboard: React.FC = () => {
     return filteredByDateReservations.filter(r => r.status === 'Active').length;
   }, [filteredByDateReservations]);
 
-  const liveUtilizationRate = useMemo(() => {
-    if (rooms.length === 0) return 0;
-    const activeRooms = rooms.filter(r => r.status === 'Active').length;
-    return Math.round((activeRooms / rooms.length) * 100);
-  }, [rooms]);
+const liveUtilizationRate = useMemo(() => {
+  if (rooms.length === 0) return 0;
+  // Count total rooms with active bookings
+  const roomsWithActiveBookings = rooms.filter(room => {
+    return reservations.some(r => 
+      r.room_id === Number(room.id) && 
+      r.status === 'Active'
+    );
+  }).length;
+  return Math.round((roomsWithActiveBookings / rooms.length) * 100);
+}, [rooms, reservations]);
 
-  const campusMetrics = useMemo(() => {
-    const calculateForCampus = (campusName: 'Makati' | 'Intramuros') => {
-      const campusRooms = rooms.filter(r => r.campus === campusName);
-      if (campusRooms.length === 0) return { percent: 0, count: 0 };
-      const activeCount = campusRooms.filter(r => r.status === 'Active').length;
-      return {
-        percent: Math.round((activeCount / campusRooms.length) * 100),
-        count: activeCount,
-      };
-    };
+const campusMetrics = useMemo(() => {
+  const calculateForCampus = (campusName: 'Makati' | 'Intramuros') => {
+    const campusRooms = rooms.filter(r => r.campus === campusName);
+    if (campusRooms.length === 0) return { percent: 0, count: 0 };
+    
+    const roomsWithActiveBookings = campusRooms.filter(room => {
+      return reservations.some(r => 
+        r.room_id === Number(room.id) && 
+        r.status === 'Active'  // Reservation status
+      );
+    }).length;
+    
     return {
-      Makati: calculateForCampus('Makati'),
-      Intramuros: calculateForCampus('Intramuros'),
+      percent: Math.round((roomsWithActiveBookings / campusRooms.length) * 100),
+      count: roomsWithActiveBookings,
     };
-  }, [rooms]);
+  };
+  return {
+    Makati: calculateForCampus('Makati'),
+    Intramuros: calculateForCampus('Intramuros'),
+  };
+}, [rooms, reservations]);
 
   // ============ Pending requests from ALL reservations ============
   const pendingRequests = useMemo(() => {
@@ -580,6 +592,10 @@ function LiveBoardView({
           <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Checked In</p>
           <p className="text-3xl font-bold text-green-600">{checkedInCount}</p>
         </div>
+          <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+    <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Utilization</p>
+    <p className="text-3xl font-bold text-gray-900">{liveUtilizationRate}%</p>
+  </div>
       </div>
 
       {/* Tab Navigation + Export Button */}
