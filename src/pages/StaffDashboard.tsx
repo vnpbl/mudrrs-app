@@ -159,10 +159,14 @@ const campusMetrics = useMemo(() => {
         await rejectReservation(Number(id));
       }
 
-      // 2. Fetch reservation with student data
+      // 2. Fetch reservation with student AND room data
       const { data: reservation, error: fetchError } = await supabase
         .from('reservations')
-        .select('*, student:students(*)')
+        .select(`
+          *,
+          student:students(*),
+          room:rooms(*)
+        `)
         .eq('reservation_id', Number(id))
         .single();
 
@@ -179,7 +183,14 @@ const campusMetrics = useMemo(() => {
         return;
       }
 
-      // 3. ✅ Fetch the user email from the `users` table using student.user_id
+      const room = reservation.room;
+      if (!room) {
+        console.error('❌ No room linked to this reservation.');
+        setError('Room not found.');
+        return;
+      }
+
+      // 3. Fetch user email from the users table
       const { data: user, error: userError } = await supabase
         .from('users')
         .select('email')
@@ -193,14 +204,15 @@ const campusMetrics = useMemo(() => {
       }
 
       console.log(`✅ Found email: ${user.email} for student ${student.student_id}`);
+      console.log(`✅ Room: ${room.room_name} (${room.campus})`);
 
-      // 4. ✅ Now send the email using the fetched email
+      // 4. Send email with all the data
       const templateType = action === 'Approved' ? 'confirmation' : 'rejection';
       const emailResult = await sendReservationEmail(templateType, {
-        to_email: user.email,   // ✅ The email we just fetched
+        to_email: user.email,
         student_name: `${student.first_name} ${student.last_name}`,
-        room_name: reservation.room_name || 'Unknown Room',
-        campus: reservation.campus || 'Unknown Campus',
+        room_name: room.room_name,      // ✅ From the joined rooms table
+        campus: room.campus,            // ✅ From the joined rooms table
         date: new Date(reservation.start_time).toLocaleDateString(),
         start_time: new Date(reservation.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         end_time: new Date(reservation.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -209,7 +221,6 @@ const campusMetrics = useMemo(() => {
 
       if (!emailResult.success) {
         console.warn('⚠️ Email failed but booking was updated:', emailResult.error);
-        // Non-blocking – the reservation update succeeded
       }
 
       // 5. Refresh the dashboard
