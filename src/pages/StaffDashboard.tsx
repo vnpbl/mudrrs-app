@@ -705,7 +705,7 @@ function LiveBoardView({
             onClick={() => setActiveTab('active')}
             className={`px-5 py-2 rounded-lg text-sm font-bold transition-colors ${activeTab === 'active' ? 'bg-gray-900 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
           >
-            🔴 Active Now {activeRequests.length > 0 && <span className="ml-1 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{activeRequests.length}</span>}
+            Active Now {activeRequests.length > 0 && <span className="ml-1 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{activeRequests.length}</span>}
           </button>
         </div>
         
@@ -936,7 +936,7 @@ function LiveBoardView({
         </div>
       )}
 
-      {/* ============ TAB 4: Active Bookings ============ */}
+      {/* ============ TAB 4: Active Bookings (NO FORCE CANCEL) ============ */}
       {activeTab === 'active' && (
         <div>
           {activeRequests.length === 0 ? (
@@ -983,16 +983,7 @@ function LiveBoardView({
                       >
                         Check Out
                       </button>
-                      <button 
-                        onClick={() => {
-                          if (window.confirm(`Are you sure you want to force cancel this active booking for ${req.room?.name}?`)) {
-                            handleCheckIn(req.id);
-                          }
-                        }} 
-                        className="px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg text-xs font-bold hover:bg-red-100 transition-colors"
-                      >
-                        Force Cancel
-                      </button>
+                      {/* Force Cancel button REMOVED */}
                     </div>
                   </div>
                 );
