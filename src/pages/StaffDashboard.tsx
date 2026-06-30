@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { sendReservationEmail }  from '../services/emailService';
+import { sendReservationEmail } from '../services/emailService';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchRooms, createRoom, updateRoom } from '../supabase/roomService';
 import { 
@@ -103,40 +103,39 @@ export const StaffDashboard: React.FC = () => {
     return filteredByDateReservations.filter(r => r.status === 'Active').length;
   }, [filteredByDateReservations]);
 
-const liveUtilizationRate = useMemo(() => {
-  if (rooms.length === 0) return 0;
-  // Count total rooms with active bookings
-  const roomsWithActiveBookings = rooms.filter(room => {
-    return reservations.some(r => 
-      r.room_id === Number(room.id) && 
-      r.status === 'Active'
-    );
-  }).length;
-  return Math.round((roomsWithActiveBookings / rooms.length) * 100);
-}, [rooms, reservations]);
-
-const campusMetrics = useMemo(() => {
-  const calculateForCampus = (campusName: 'Makati' | 'Intramuros') => {
-    const campusRooms = rooms.filter(r => r.campus === campusName);
-    if (campusRooms.length === 0) return { percent: 0, count: 0 };
-    
-    const roomsWithActiveBookings = campusRooms.filter(room => {
+  const liveUtilizationRate = useMemo(() => {
+    if (rooms.length === 0) return 0;
+    const roomsWithActiveBookings = rooms.filter(room => {
       return reservations.some(r => 
         r.room_id === Number(room.id) && 
-        r.status === 'Active'  // Reservation status
+        r.status === 'Active'
       );
     }).length;
-    
-    return {
-      percent: Math.round((roomsWithActiveBookings / campusRooms.length) * 100),
-      count: roomsWithActiveBookings,
+    return Math.round((roomsWithActiveBookings / rooms.length) * 100);
+  }, [rooms, reservations]);
+
+  const campusMetrics = useMemo(() => {
+    const calculateForCampus = (campusName: 'Makati' | 'Intramuros') => {
+      const campusRooms = rooms.filter(r => r.campus === campusName);
+      if (campusRooms.length === 0) return { percent: 0, count: 0 };
+      
+      const roomsWithActiveBookings = campusRooms.filter(room => {
+        return reservations.some(r => 
+          r.room_id === Number(room.id) && 
+          r.status === 'Active'
+        );
+      }).length;
+      
+      return {
+        percent: Math.round((roomsWithActiveBookings / campusRooms.length) * 100),
+        count: roomsWithActiveBookings,
+      };
     };
-  };
-  return {
-    Makati: calculateForCampus('Makati'),
-    Intramuros: calculateForCampus('Intramuros'),
-  };
-}, [rooms, reservations]);
+    return {
+      Makati: calculateForCampus('Makati'),
+      Intramuros: calculateForCampus('Intramuros'),
+    };
+  }, [rooms, reservations]);
 
   // ============ Pending requests from ALL reservations ============
   const pendingRequests = useMemo(() => {
@@ -148,18 +147,21 @@ const campusMetrics = useMemo(() => {
     return reservations.filter(r => r.status === 'Approved');
   }, [reservations]);
 
+  // ============ Active requests from ALL reservations ============
+  const activeRequests = useMemo(() => {
+    return reservations.filter(r => r.status === 'Active');
+  }, [reservations]);
+
   const handleRequestDecision = async (id: string, action: 'Approved' | 'Rejected') => {
     if (!window.confirm(`Confirm action: ${action} this reservation?`)) return;
 
     try {
-      // 1. Update reservation status
       if (action === 'Approved') {
         await approveReservation(Number(id));
       } else {
         await rejectReservation(Number(id));
       }
 
-      // 2. Fetch reservation with student AND room data
       const { data: reservation, error: fetchError } = await supabase
         .from('reservations')
         .select(`
@@ -190,7 +192,6 @@ const campusMetrics = useMemo(() => {
         return;
       }
 
-      // 3. Fetch user email from the users table
       const { data: user, error: userError } = await supabase
         .from('users')
         .select('email')
@@ -206,13 +207,12 @@ const campusMetrics = useMemo(() => {
       console.log(`✅ Found email: ${user.email} for student ${student.student_id}`);
       console.log(`✅ Room: ${room.room_name} (${room.campus})`);
 
-      // 4. Send email with all the data
       const templateType = action === 'Approved' ? 'confirmation' : 'rejection';
       const emailResult = await sendReservationEmail(templateType, {
         to_email: user.email,
         student_name: `${student.first_name} ${student.last_name}`,
-        room_name: room.room_name,      // ✅ From the joined rooms table
-        campus: room.campus,            // ✅ From the joined rooms table
+        room_name: room.room_name,
+        campus: room.campus,
         date: new Date(reservation.start_time).toLocaleDateString(),
         start_time: new Date(reservation.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         end_time: new Date(reservation.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -223,7 +223,6 @@ const campusMetrics = useMemo(() => {
         console.warn('⚠️ Email failed but booking was updated:', emailResult.error);
       }
 
-      // 5. Refresh the dashboard
       await loadData();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -470,6 +469,7 @@ const campusMetrics = useMemo(() => {
                 reservations={filteredByDateReservations}
                 pendingRequests={pendingRequests}
                 approvedRequests={approvedRequests}
+                activeRequests={activeRequests}
                 rooms={rooms}
                 searchQuery={searchQuery}
                 setSearchQuery={setSearchQuery}
@@ -518,6 +518,7 @@ interface LiveBoardProps {
   reservations: ReservationWithRoom[];
   pendingRequests: ReservationWithRoom[];
   approvedRequests: ReservationWithRoom[];
+  activeRequests: ReservationWithRoom[];
   rooms: RoomRow[];
   searchQuery: string;
   setSearchQuery: (q: string) => void;
@@ -538,6 +539,7 @@ function LiveBoardView({
   reservations,
   pendingRequests,
   approvedRequests,
+  activeRequests,
   rooms,
   searchQuery,
   setSearchQuery,
@@ -553,7 +555,7 @@ function LiveBoardView({
   handleCheckOut,
   onExport,
 }: LiveBoardProps) {
-  const [activeTab, setActiveTab] = useState<'monitor' | 'pending' | 'approved'>('monitor');
+  const [activeTab, setActiveTab] = useState<'monitor' | 'pending' | 'approved' | 'active'>('monitor');
 
   // ============ Handle both ISO and time strings ============
   const fmtTime = (t: string) => {
@@ -638,10 +640,19 @@ function LiveBoardView({
     return reservation.check_out_time !== null && reservation.check_out_time !== undefined;
   };
 
-  // Count approved bookings that are checked in (active)
-  const checkedInCount = useMemo(() => {
-    return approvedRequests.filter(r => isCheckedIn(r) && !isCheckedOut(r)).length;
-  }, [approvedRequests]);
+  // Calculate duration of active booking
+  const getActiveDuration = (startTime: string) => {
+    const now = new Date();
+    const start = new Date(startTime);
+    const diffMinutes = Math.floor((now.getTime() - start.getTime()) / 60000);
+    
+    if (diffMinutes < 60) {
+      return `${diffMinutes}m`;
+    }
+    const hours = Math.floor(diffMinutes / 60);
+    const mins = diffMinutes % 60;
+    return `${hours}h ${mins}m`;
+  };
 
   return (
     <div className="space-y-8">
@@ -664,18 +675,14 @@ function LiveBoardView({
           <p className="text-3xl font-bold text-blue-600">{approvedRequests.length}</p>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-          <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Checked In</p>
-          <p className="text-3xl font-bold text-green-600">{checkedInCount}</p>
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Utilization</p>
+          <p className="text-3xl font-bold text-gray-900">{liveUtilizationRate}%</p>
         </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-    <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Utilization</p>
-    <p className="text-3xl font-bold text-gray-900">{liveUtilizationRate}%</p>
-  </div>
       </div>
 
       {/* Tab Navigation + Export Button */}
       <div className="flex justify-between items-center">
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <button
             onClick={() => setActiveTab('monitor')}
             className={`px-5 py-2 rounded-lg text-sm font-bold transition-colors ${activeTab === 'monitor' ? 'bg-gray-900 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
@@ -695,28 +702,10 @@ function LiveBoardView({
             Approved Bookings {approvedRequests.length > 0 && <span className="ml-1 bg-blue-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{approvedRequests.length}</span>}
           </button>
           <button
-            onClick={async () => {
-              const templateType = "confirmation"; // or "rejection" based on your test case
-              const result = await sendReservationEmail(templateType, {
-                to_email: "mearvindominicb@gmail.com", // Change to your email
-                student_name: "Test Student",
-                room_name: "Discussion Room A",
-                campus: "Makati",
-                date: "June 30, 2026",
-                start_time: "10:00 AM",
-                end_time: "11:30 AM",
-                status: "Approved",
-              });
-
-              if (result.success) {
-                alert('✅ Test email sent! Check your inbox (and spam folder).');
-              } else {
-                alert('❌ Failed to send: ' + result.error);
-              }
-            }}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700"
+            onClick={() => setActiveTab('active')}
+            className={`px-5 py-2 rounded-lg text-sm font-bold transition-colors ${activeTab === 'active' ? 'bg-gray-900 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
           >
-            📧 Test Email
+            🔴 Active Now {activeRequests.length > 0 && <span className="ml-1 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{activeRequests.length}</span>}
           </button>
         </div>
         
@@ -848,7 +837,7 @@ function LiveBoardView({
         </div>
       )}
 
-      {/* ============ TAB 3: Approved Bookings (with Check In/Out) ============ */}
+      {/* ============ TAB 3: Approved Bookings ============ */}
       {activeTab === 'approved' && (
         <div>
           {approvedRequests.length === 0 ? (
@@ -938,6 +927,72 @@ function LiveBoardView({
                           Cancel
                         </button>
                       )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ============ TAB 4: Active Bookings ============ */}
+      {activeTab === 'active' && (
+        <div>
+          {activeRequests.length === 0 ? (
+            <div className="text-center py-12 bg-white border border-dashed border-gray-300 rounded-xl">
+              <p className="text-gray-500 font-medium">No active bookings right now.</p>
+              <p className="text-sm text-gray-400 mt-2">Students will appear here once they check in.</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {activeRequests.map(req => {
+                const duration = getActiveDuration(req.start_time);
+                
+                return (
+                  <div key={req.id} className="bg-white border-2 border-red-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-all">
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                          {req.room?.name || 'Unknown Room'}
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700 animate-pulse">
+                            ● LIVE
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-600">
+                            {duration} elapsed
+                          </span>
+                        </h3>
+                        <p className="text-sm text-gray-500 mt-1">
+                          {fmtTime(req.start_time)} - {fmtTime(req.end_time)} | {req.date}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          ID: {req.id} | Group Size: {req.group_size}
+                          {req.check_in_time && (
+                            <span className="ml-2 text-green-600">Check-in: {new Date(req.check_in_time).toLocaleTimeString()}</span>
+                          )}
+                        </p>
+                      </div>
+                      <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase bg-red-50 text-red-700 border border-red-200">
+                        Active
+                      </span>
+                    </div>
+                    <div className="flex justify-end gap-2 border-t border-gray-100 pt-3">
+                      <button 
+                        onClick={() => handleCheckOut(req.id)} 
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition-colors shadow-sm hover:shadow-md"
+                      >
+                        Check Out
+                      </button>
+                      <button 
+                        onClick={() => {
+                          if (window.confirm(`Are you sure you want to force cancel this active booking for ${req.room?.name}?`)) {
+                            handleCheckIn(req.id);
+                          }
+                        }} 
+                        className="px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg text-xs font-bold hover:bg-red-100 transition-colors"
+                      >
+                        Force Cancel
+                      </button>
                     </div>
                   </div>
                 );
